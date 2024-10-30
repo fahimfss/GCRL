@@ -46,7 +46,9 @@ def eval(args, log_dir, eval_queue, num_eval_episodes):
                           args['image_history'], 
                           args['image_width'], 
                           args['image_height'],  
-                          env_mode="eval",
+                          env_mode="eval", 
+                          mask_delay_type=args['mask_delay_type'], 
+                          mask_delay_steps=args['mask_delay_steps'],
                           video_path=args['video_dir'])
         env = WrappedEnv(env, 200)
         

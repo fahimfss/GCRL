@@ -9,7 +9,7 @@ import multiprocessing as mp
 import numpy as np
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+# os.environ['CUDA_VISIBLE_DEVICES']='0'
 # os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='.10'
 
@@ -40,18 +40,20 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    # parser.add_argument('--env_name', default='UR10eMask4C-v1', type=str)
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
+    parser.add_argument('--task_name', default='baseline', type=str)
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
-    parser.add_argument('--image_width', default=159, type=int)      # Mode: img, img_prop     
+    parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
+    parser.add_argument('--mask_delay_type', default='n_step', type=str)
+    parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=200_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=250_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=200_000, type=int)
+    parser.add_argument('--env_steps', default=250_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -64,7 +66,7 @@ def parse_args():
     parser.add_argument('--critic_target_update_freq', default=1, type=int)
     
     # actor
-    parser.add_argument('--actor_lr', default=3e-4, type=float)
+    parser.add_argument('--actor_lr', default=2e-4, type=float)
     parser.add_argument('--actor_update_freq', default=1, type=int)
     parser.add_argument('--actor_sync_freq', default=8, type=int)   # Sync mode: False
     
@@ -114,7 +116,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.mode}_{sync_mode}_SS'
+    args.name = f'{args.env_name}_{args.mode}_{sync_mode}_{args.task_name}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -162,7 +164,12 @@ def main(seed=-1, env_name=None):
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb)
 
-    env = UR10_ENV(args.env_name, args.image_history, args.image_width, args.image_height)
+    env = UR10_ENV(args.env_name, 
+                   args.image_history, 
+                   args.image_width, 
+                   args.image_height,
+                   mask_delay_type=args.mask_delay_type,
+                   mask_delay_steps=args.mask_delay_steps)
     env = WrappedEnv(env, 200)
 
     set_seed_everywhere(seed=args.seed)

@@ -1,7 +1,4 @@
 import collections
-import os
-import sys
-from PIL import Image, ImageDraw
 import random
 import gymnasium as gym
 import numpy as np
@@ -36,6 +33,8 @@ class EnvV0(env_base_0.MujocoEnv):
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
                mask_type = "ground_truth",  # "ground_truth", "gdino"
+               mask_delay_type = "none",    # "none", "n_step", "sequential"
+               mask_delay_steps = 2,
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
                **kwargs,
@@ -60,6 +59,10 @@ class EnvV0(env_base_0.MujocoEnv):
         self.env_mode = env_mode
         self.reward_mode = reward_mode
         self.mask_type = mask_type
+        self.mask_delay_type = mask_delay_type
+        self.mask_delay_steps = mask_delay_steps
+        if self.mask_delay_type == "n_step":
+            self.mask_step = -1
         
         if reward_mode == "distance":
             weighted_reward_keys = {
@@ -259,6 +262,9 @@ class EnvV0(env_base_0.MujocoEnv):
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
         self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+
+        if self.mask_delay_type == "n_step":
+            self.mask_step = -1
         
         self.final_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 4), dtype=np.uint8) 
         return {'image': self.final_image, 'vector': obs}
@@ -274,7 +280,7 @@ class EnvV0(env_base_0.MujocoEnv):
 
         rgb = self.get_image_data()
         
-        site_pos = self.sim.data.site_xpos[self.target_sid]
+        site_pos = self.sim.data.site_xpos[self.target_sid].copy()
         camera_matrix = self.compute_camera_matrix()
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
@@ -374,34 +380,33 @@ class EnvV0(env_base_0.MujocoEnv):
         
         mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
         x, y = int(self.target_x), int(self.target_y)
-        
         half_side = int(max(self.r, 2))
-        
         cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
- 
-        # Display the mask
-        '''
-        cv.imshow('Mask', mask)
-        cv.imshow("rbg", rgb)
-        cv.waitKey(1)
-        cv.waitKey(delay=5000)
-        cv.destroyAllWindows()
-        '''
 
-        self.current_image = np.concatenate((rgb, np.expand_dims(mask, axis=-1)), axis=2)
-        
+        if self.mask_delay_type == "none":
+            self.current_mask = mask
+        elif self.mask_delay_type == "n_step":
+            if self.mask_step == -1:
+                self.current_mask = mask.copy()
+                self.saved_mask = mask.copy()
+                self.mask_step = 1
+            else:
+                if self.mask_step == 0:
+                    self.current_mask = self.saved_mask
+                    self.saved_mask = mask.copy()
+                    self.mask_step = self.mask_delay_steps
+            self.mask_step -= 1
+ 
         #define the grasping rectangle
         x1, x2 = int(self.IMAGE_WIDTH * 0.25), int(self.IMAGE_WIDTH * 0.75)
         y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.80)
         
-        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3) 
-        # cv.imshow('Image with Rectangle', rgb)
-        # cv.waitKey(0)
-        
-        roi = mask[y1:y2, x1:x2]
+        roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
         total_pixels = float(roi.size)
         self.mask_size = (white_pixels / total_pixels)  
+
+        self.current_image = np.concatenate((rgb, np.expand_dims(self.current_mask, axis=-1)), axis=2)
          
         return np.array(np.fliplr(np.flipud(rgb)))
 

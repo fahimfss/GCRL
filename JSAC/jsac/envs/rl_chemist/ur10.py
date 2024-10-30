@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np 
 import gymnasium as gym
@@ -13,17 +14,24 @@ class UR10_ENV(gym.Wrapper):
                  image_height=128, 
                  env_mode="train",
                  target_obj_num=-1,
+                 mask_delay_type="none",
+                 mask_delay_steps=2,
                  video_path="."):
 
         if target_obj_num >= 0:
-            print("target_obj_num", target_obj_num)
-            super().__init__(gym.make(f'robohive.envs:{env_name}', env_mode=env_mode, target_obj_num=target_obj_num))
+            super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                      env_mode=env_mode, 
+                                      target_obj_num=target_obj_num))
         else:
-            super().__init__(gym.make(f'robohive.envs:{env_name}', env_mode=env_mode))
+            super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                      env_mode=env_mode,
+                                      mask_delay_type=mask_delay_type,
+                                      mask_delay_steps=mask_delay_steps))
 
         self._env_name = env_name
         self._image_history = image_history
         self._video_path = video_path
+        self._mask_delay_steps = mask_delay_steps
         
         state = self.env.reset() 
         channels = state['image'].shape[-1]
@@ -64,8 +72,11 @@ class UR10_ENV(gym.Wrapper):
         done = terminated 
         
         msk = (new_img[:, :, 3:4].squeeze(-1),)*3
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # cv2.waitKey(1)  
+
+        # path = '/home/fahim/project/RLC/training/results/images/'
+        # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
+        # img_name = f'{path}{ln}.png'
+        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
         # print(info['prompt'])
         
         if self._create_video: 
@@ -94,15 +105,18 @@ class UR10_ENV(gym.Wrapper):
             self._video_buffer = []
         
         self.env.reset() 
-        for i in range(3):
+        for _ in range(self._mask_delay_steps + 1):
             ob, _, _, _, _ = self.env.step(np.zeros(self.action_space.shape))
             
         new_img = ob['image']
         prop = ob['vector']
         
         msk = (new_img[:, :, 3:4].squeeze(-1),)*3
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # cv2.waitKey(1) 
+        
+        # path = '/home/fahim/project/RLC/training/results/images/'
+        # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
+        # img_name = f'{path}{ln}.png'
+        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1)) 
         
         if create_vid: 
             print("Video will be created. ")
