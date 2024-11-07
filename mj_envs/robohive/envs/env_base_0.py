@@ -19,6 +19,8 @@ from sys import platform
 from robohive.physics.sim_scene import SimScene
 import robohive.utils.import_utils as import_utils
 
+import mujoco
+
 # TODO
 # remove rwd_mode
 # convert obs_keys to obs_keys_wt
@@ -59,6 +61,16 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         self.sim.forward()
         self.sim_obsd.forward()
         ObsVecDict.__init__(self)
+
+        ## MODEL and DATA FOR INTERACTIVE RENDERING ONLY ##
+                
+        self.model = mujoco.MjModel.from_xml_path(model_path)
+        self.data = mujoco.MjData(self.model)
+        # load model key before hand
+        default_kf = self.model.keyframe("default")
+        self.data.qpos = default_kf.qpos.copy()
+        self.data.ctrl = default_kf.ctrl.copy()
+
 
 
     def _setup(self,
@@ -132,6 +144,7 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         self._setup_rgb_encoders(self.visual_keys, device=None)
 
         # reset to get the env ready
+
         observation, _reward, done, _, _info = self.step(np.zeros(self.sim.model.nu))
         # Question: Should we replace above with following? Its specially helpful for hardware as it forces a env reset before continuing, without which the hardware will make a big jump from its position to the position asked by step.
         # observation = self.reset()

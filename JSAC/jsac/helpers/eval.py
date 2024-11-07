@@ -8,7 +8,7 @@ from jsac.helpers.logger import Logger
 from jsac.helpers.utils import WrappedEnv
 from jsac.algo.agent import sample_actions
 from jsac.algo.initializers import init_inference_actor 
-from jsac.envs.rl_chemist.ur10 import UR10_ENV
+from jsac.envs.rl_chemist.franka import Franka_Env
 from jsac.envs.dmc_visual_env.dmc_env import DMCVisualEnv
 from jsac.envs.mujoco_visual_env.mujoco_visual_env import MujocoVisualEnv
 
@@ -42,7 +42,7 @@ def eval(args, log_dir, eval_queue, num_eval_episodes):
                            args['action_repeat'])
         env = WrappedEnv(env)
     elif args['env_type'] == 'RLC':
-        env = UR10_ENV(args['env_name'], 
+        env = Franka_Env(args['env_name'], 
                           args['image_history'], 
                           args['image_width'], 
                           args['image_height'],  

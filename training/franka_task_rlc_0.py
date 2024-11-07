@@ -15,7 +15,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 from jsac.helpers.logger import Logger
 from jsac.helpers.eval import start_eval_process
-from jsac.envs.rl_chemist.ur10 import Franka_Env
+from jsac.envs.rl_chemist.franka import Franka_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
 
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
+    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
     parser.add_argument('--task_name', default='baseline', type=str)
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
@@ -209,7 +209,6 @@ def main(seed=-1, env_name=None):
         t2 = time.time()
         next_state, reward, done, info = env.step(action) 
         t3 = time.time()
-
         mask = 1.0 if not done or 'truncated' in info else 0.0
         
         agent.add(state, action, reward, next_state, mask, first_step)

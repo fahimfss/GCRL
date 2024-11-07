@@ -105,8 +105,8 @@ class EnvV0(env_base_0.MujocoEnv):
     def get_obs_dict(self, sim):
         obs_dict = {}
         obs_dict['time'] = np.array([self.sim.data.time])
-        obs_dict['qp_robot'] = sim.data.qpos[:7].copy()
-        obs_dict['qv_robot'] = sim.data.qvel[:7].copy()
+        obs_dict['qp_robot'] = sim.data.qpos[:sim.model.nu].copy()
+        obs_dict['qv_robot'] = sim.data.qvel[:sim.model.nu].copy()
         obs_dict['xmat_pinch'] = mat2euler(np.reshape(self.sim.data.site_xmat[self.grasp_sid], (3, 3)))
         obs_dict['claw_ori_err'] = obs_dict['xmat_pinch'] - np.array([-np.pi, 0, -np.pi/2])
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
@@ -336,7 +336,7 @@ class EnvV0(env_base_0.MujocoEnv):
  
         if self.single_touch >= 1000:
             print('hard-coded')
-            self.fixed_positions = self.sim.data.qpos[:7].copy()
+            self.fixed_positions = self.sim.data.qpos[:self.sim.model.nu].copy()
             self.fixed_positions[-1] = 1
             a[-1] = 1
 
@@ -348,7 +348,7 @@ class EnvV0(env_base_0.MujocoEnv):
             a = np.clip(a, self.action_space.low, self.action_space.high)
             self.fixed_positions = None
             self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = self.sim.data.qpos[:7].copy(),
+                                        last_qpos = self.sim.data.qpos[:self.sim.model.nu].copy(),
                                         dt = self.dt,
                                         render_cbk=self.mj_render if self.mujoco_render_frames else None)
 

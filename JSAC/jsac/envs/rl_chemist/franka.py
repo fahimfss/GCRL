@@ -5,9 +5,10 @@ import gymnasium as gym
 from collections import deque
 from gymnasium.spaces import Box
 import mujoco
-
+import cv2
 
 from jsac.helpers.utils import render_interactive
+
 
 class Franka_Env(gym.Wrapper):
     def __init__(self, 
@@ -47,7 +48,8 @@ class Franka_Env(gym.Wrapper):
         
         self._latest_image = None
         self._reset = False
-        self._create_video = False
+        self._create_video = True
+        self._video_buffer = []
         
         if render_interactive:
             self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
@@ -202,7 +204,5 @@ class Franka_Env(gym.Wrapper):
 
 
 if __name__=="__main__":
-
-    env = Franka_Env(env_name="UR10eEnv-v0",render_interactive=True)
+    env = Franka_Env(env_name="FrankaEnv-v0", render_interactive=True) # replace model path accordingly
     render_interactive(env)
-    
