@@ -1,6 +1,5 @@
 from groundingdino.util.inference import load_model, load_image, predict, annotate
 import cv2
-import random
 import torch
 import time
 import math
@@ -11,8 +10,11 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 
-model = load_model("/home/fahim/Projects/RLC/GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-"/home/fahim/Projects/RLC/GroundingDINO/asset/groundingdino_swint_ogc.pth")
+# model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+# "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+
+model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+"../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
 
 BOX_TRESHOLD = 0.40
 TEXT_TRESHOLD = 0.25
@@ -79,11 +81,13 @@ def inference(object_name, out_path, inference_image_size, info_path, distance_t
         img_path = all_object_data[index]['img_path']
         x = all_object_data[index]['x']
         y = all_object_data[index]['y'] 
+        arm_distance = all_object_data[index]['distance'] 
+        
         image_source, image = load_image(img_path, inference_image_size)
         if object_name == 'rubber duck':
             o_name = 'yellow toy duck'
         elif object_name == 'beaker':
-            o_name = 'glass flask'
+            o_name = 'round glass beaker'
         elif object_name == 'alarm clock':
             o_name = 'purple clock'
         else:
@@ -123,7 +127,7 @@ def inference(object_name, out_path, inference_image_size, info_path, distance_t
             else: 
                 errors.append((image_path, "Incorrect prediction", dist)) 
                 
-        infos.append(f'"Image path": "{image_path}", "flag": {flag}, "dist": {dist}, "time": {tm}')
+        infos.append(f'"Image path": "{image_path}", "flag": {flag}, "dist": {dist}, "time": {tm}, "arm_distance": {arm_distance}')
         
     inference_time = inference_time / total
     
@@ -133,8 +137,8 @@ def inference(object_name, out_path, inference_image_size, info_path, distance_t
 
 if __name__ == '__main__':
     
-    info_paths = ["/home/fahim/Projects/RLC/scritps/inference_test_data_1", 
-                  "/home/fahim/Projects/RLC/scritps/inference_test_data_2"]
+    info_paths = ["inference_test_data_1", 
+                  "inference_test_data_2"]
     
     inference_image_sizes = [[848, 480], [636, 360], [424, 240]]
     distance_thresholds = [100.0, 75.0, 50.0]

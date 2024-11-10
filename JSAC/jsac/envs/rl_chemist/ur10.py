@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np 
 import gymnasium as gym
@@ -12,14 +13,22 @@ class UR10_ENV(gym.Wrapper):
                  image_width=128, 
                  image_height=128, 
                  env_mode="train",
+                 mask_type="ground_truth",
                  target_obj_num=-1,
+                 mask_delay_type="none",
+                 mask_delay_steps=2,
                  video_path="."):
 
         if target_obj_num >= 0:
-            print("target_obj_num", target_obj_num)
-            super().__init__(gym.make(f'robohive.envs:{env_name}', env_mode=env_mode, target_obj_num=target_obj_num))
+            super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                      env_mode=env_mode, 
+                                      target_obj_num=target_obj_num))
         else:
-            super().__init__(gym.make(f'robohive.envs:{env_name}', env_mode=env_mode))
+            super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                      env_mode=env_mode,
+                                      mask_type=mask_type,
+                                      mask_delay_type=mask_delay_type,
+                                      mask_delay_steps=mask_delay_steps))
 
         self._env_name = env_name
         self._image_history = image_history
@@ -64,8 +73,11 @@ class UR10_ENV(gym.Wrapper):
         done = terminated 
         
         msk = (new_img[:, :, 3:4].squeeze(-1),)*3
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # cv2.waitKey(1)  
+
+        # path = '/home/fahim/project/imgs_dump/'
+        # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
+        # img_name = f'{path}{ln}.png'
+        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
         # print(info['prompt'])
         
         if self._create_video: 
@@ -87,22 +99,23 @@ class UR10_ENV(gym.Wrapper):
  
         return (self._latest_image, prop), reward, done, info 
 
-    def reset(self, create_vid=False):
+    def reset(self, create_vid=False, **kwargs):
         if self._create_video and len(self._video_buffer) > 0: 
             self._save_video()
             self._create_video = False
             self._video_buffer = []
         
-        self.env.reset() 
-        for i in range(3):
-            ob, _, _, _, _ = self.env.step(np.zeros(self.action_space.shape))
-            
+        ob = self.env.reset(**kwargs) 
+
         new_img = ob['image']
         prop = ob['vector']
         
         msk = (new_img[:, :, 3:4].squeeze(-1),)*3
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # cv2.waitKey(1) 
+        
+        # path = '/home/fahim/project/imgs_dump/'
+        # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
+        # img_name = f'{path}{ln}.png'
+        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1)) 
         
         if create_vid: 
             print("Video will be created. ")

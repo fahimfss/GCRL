@@ -1,18 +1,114 @@
-import collections
 import os
-import sys
-from PIL import Image, ImageDraw
-import random
-import gymnasium as gym
-import numpy as np
-import cv2 as cv
-import os
+import time
 import copy
 import math
+import torch
+import random
+import cv2 as cv
+import collections
+import numpy as np
+from PIL import Image
+import gymnasium as gym
+import multiprocessing as mp
+from torchvision.ops import box_convert
+
 from robohive.envs import env_base_0
+import groundingdino.datasets.transforms as T 
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
+from groundingdino.util.inference import load_model, predict
 
+
+BOX_THRESHOLD = 0.40
+TEXT_THRESHOLD = 0.25
+
+def load_image(image_source, image_size):
+        transform = T.Compose(
+            [
+                T.RandomResize(image_size),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ]
+        )
+        image_transformed, _ = transform(image_source, None)
+        return image_transformed
+
+def create_mask(image_source, boxes) -> np.ndarray:
+        """
+        This function creates a mask with white rectangles on a black background,
+        where the rectangles are defined by the bounding boxes.
+
+        Parameters:
+        image_source (np.ndarray): The source image for determining the size of the mask.
+        boxes (torch.Tensor): A tensor containing bounding box coordinates in cxcywh format.
+
+        Returns:
+        np.ndarray: The mask image.
+        """
+        # Get the dimensions of the source image
+        h, w = image_source.shape
+
+        # Scale the boxes to the image dimensions
+        boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
+
+        # Convert boxes from cxcywh to xyxy format
+        xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
+
+        # Create a black mask
+        mask = np.zeros((h, w), dtype=np.uint8)
+            
+        if xyxy.size != 0:
+            px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
+            py1, py2 = float(xyxy[1]) / h, float(xyxy[3]) / h
+            
+            if px2 - px1 > 0.8 and py2 - py1 > 0.8:
+                pass
+            # elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
+            #     pass 
+            # elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
+            #     pass 
+            else: 
+                top_left = (int(xyxy[0]), int(xyxy[1]))
+                bottom_right = (int(xyxy[2]), int(xyxy[3]))
+                cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
+                white_pixels = np.argwhere(mask == 255)
+            
+                # Calculate the mean of each column (x, y coordinates)
+                centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
+
+                # Convert from (row, col) to (x, y)
+                centroid = (centroid[1], centroid[0])
+
+        return mask
+    
+def async_g_dino(image_queue, mask_queue):
+    # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+    #                 "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+    
+    model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+                       "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+    while True:
+        data = image_queue.get()
+        if isinstance(data, str):
+            if data == 'close':
+                return 
+        img, target_name = data  
+        h, w, c = img.shape 
+        pil_image = Image.fromarray(img)  
+        boxes, logits, phrases = predict(
+            model=model,
+            image=load_image(pil_image, [w, h]),
+            caption=target_name,
+            box_threshold=BOX_THRESHOLD,
+            text_threshold=TEXT_THRESHOLD
+        ) 
+        if logits.nelement() > 0:
+            _, indices = torch.max(logits, dim = 0)
+            boxes = boxes.numpy()
+            boxes = boxes[indices]
+        mask = np.zeros((h,  w), dtype=np.uint8)  
+        mask = create_mask(mask, boxes=boxes) 
+        mask_queue.put(mask)
 
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'qv_robot']
@@ -35,12 +131,15 @@ class EnvV0(env_base_0.MujocoEnv):
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
-               mask_type = "ground_truth",  # "ground_truth", "gdino"
+               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+               mask_delay_type = "none",    # "none", "n_step", "sequential"
+               mask_delay_steps = 2,
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
                **kwargs,
         ):
-
+        np.set_printoptions(precision=4,suppress=True)
+        
         # ids
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
         self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
@@ -56,10 +155,13 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_x, self.target_y = 0, 0
         self.target_r = 0
         self.camera_matrix = None
+        self.current_mask = None
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
         self.mask_type = mask_type
+        self.mask_delay_type = mask_delay_type
+        self.mask_delay_steps = mask_delay_steps
         
         if reward_mode == "distance":
             weighted_reward_keys = {
@@ -78,10 +180,33 @@ class EnvV0(env_base_0.MujocoEnv):
                 "done": 5.,
             }
             
-        self.target_name = None
+        if self.mask_type == "gdino_sync":
+            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+                                         "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+            
+            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+            #                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+            
+        elif self.mask_type == "gdino_async" or self.mask_type == "gt_gdino_async":
+            self.image_queue = mp.Queue()
+            self.mask_queue = mp.Queue()
+            self.mask_process = mp.Process(target=async_g_dino, args=(self.image_queue, self.mask_queue))
+            self.mask_process.start()
+            self.images_sent = 0
+            self.masks_recieved = 0
+            if self.mask_type == "gt_gdino_async":
+                self.mask_type = "ground_truth"
+                self.mask_delay_type = "n_step"
+                self.mask_delay_steps = 2
+                
+        if self.mask_delay_type == "n_step":
+            self.mask_step = -1
         
-        self.TS = ['object_1', 'object_2',    'object_3', 'object_4', 'object_5',    'object_6', 'object_7',    'object_8']
-        self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
+        self.target_name = "apple"
+        
+        self.TS = ['object_1', 'object_2',    'object_3', 'object_4',    'object_5',        'object_6', 'object_7',     'object_8']
+        self.TN = ['apple',    'green block', 'donut',    'glass flask', 'yellow toy duck', 'banana',   'purple clock', 'cup'     ]
+        # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
         self.target_site_name = self.TS[0]
@@ -186,7 +311,21 @@ class EnvV0(env_base_0.MujocoEnv):
                 reset_qpos[object_qpos_adr + 1] = y_pos
     
     def reset(self, reset_qpos=None, **kwargs):
-        self.single_touch = 0
+        self.current_mask = None
+        if self.mask_delay_type == "n_step":
+            self.mask_step = -1
+        
+        if self.mask_type == "ground_truth" and "set_gdino_async" in kwargs:
+            self.mask_type = "gdino_async"
+            self.mask_delay_type = "none"
+            kwargs.pop("set_gdino_async")
+        
+        if self.mask_type == "gdino_async":
+            while(self.images_sent > self.masks_recieved):
+                self.mask_queue.get()
+                self.masks_recieved += 1
+            self.images_sent = 0
+            self.masks_recieved = 0
          
         if self.env_mode == "train":
             number = np.random.randint(0, 5)
@@ -205,11 +344,7 @@ class EnvV0(env_base_0.MujocoEnv):
  
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
             if self.env_mode == "inference_3":
-                while True:
-                    other_indices = random.sample([i for i in range(8) if i != number], 2)
-                    indices = [number] + other_indices
-                    if not (4 in indices and 5 in indices):
-                        break
+                other_indices = random.sample([i for i in range(8) if i != number], 2)
                 other_site_names = [self.TS[ind] for ind in other_indices]
             else:
                 other_site_names = []
@@ -264,7 +399,7 @@ class EnvV0(env_base_0.MujocoEnv):
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
         self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
         
-        self.final_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 4), dtype=np.uint8) 
+        self.final_image = self.current_image
         return {'image': self.final_image, 'vector': obs}
     
 
@@ -278,7 +413,7 @@ class EnvV0(env_base_0.MujocoEnv):
 
         rgb = self.get_image_data()
         
-        site_pos = self.sim.data.site_xpos[self.target_sid]
+        site_pos = self.sim.data.site_xpos[self.target_sid].copy()
         camera_matrix = self.compute_camera_matrix()
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
@@ -376,36 +511,69 @@ class EnvV0(env_base_0.MujocoEnv):
 
         rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB)
         
-        mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
-        x, y = int(self.target_x), int(self.target_y)
-        
-        half_side = int(max(self.r, 2))
-        
-        cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
- 
-        # Display the mask
-        '''
-        cv.imshow('Mask', mask)
-        cv.imshow("rbg", rgb)
-        cv.waitKey(1)
-        cv.waitKey(delay=5000)
-        cv.destroyAllWindows()
-        '''
+        if self.mask_type == "ground_truth":
+            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
+            x, y = int(self.target_x), int(self.target_y)
+            half_side = int(max(self.r, 2))
+            cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
 
-        self.current_image = np.concatenate((rgb, np.expand_dims(mask, axis=-1)), axis=2)
-        
+            if self.mask_delay_type == "none":
+                self.current_mask = mask
+            elif self.mask_delay_type == "n_step":
+                if self.mask_step == -1:
+                    self.current_mask = mask.copy()
+                    self.saved_mask = mask.copy()
+                    self.mask_step = 1
+                else:
+                    if self.mask_step == 0:
+                        self.current_mask = self.saved_mask
+                        self.saved_mask = mask.copy()
+                        self.mask_step = self.mask_delay_steps
+                self.mask_step -= 1
+        elif self.mask_type == "gdino_sync":
+            pil_image = Image.fromarray(rgb)
+            boxes, logits, phrases = predict(
+                model=self.mask_model,
+                image=load_image(pil_image, [self.IMAGE_WIDTH, self.IMAGE_HEIGHT]),
+                caption=self.target_name,
+                box_threshold=BOX_THRESHOLD,
+                text_threshold=TEXT_THRESHOLD
+            )
+            if logits.nelement() > 0:
+                _, indices = torch.max(logits, dim = 0)
+                boxes = boxes.numpy()
+                boxes = boxes[indices] 
+            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+            self.current_mask = create_mask(mask, boxes=boxes)
+        elif self.mask_type == "gdino_async":
+            if self.current_mask is None:
+                self.image_queue.put((rgb, self.target_name))
+                self.images_sent += 1
+                self.current_mask = self.mask_queue.get()
+                self.masks_recieved += 1
+            else:
+                if self.images_sent == 1:
+                    self.image_queue.put((rgb, self.target_name))
+                    self.images_sent += 1
+                if not self.mask_queue.empty():
+                    self.current_mask = self.mask_queue.get()
+                    self.masks_recieved += 1
+                    self.image_queue.put((rgb, self.target_name))
+                    self.images_sent += 1
+                    
+                 
         #define the grasping rectangle
-        x1, x2 = int(self.IMAGE_WIDTH * 0.25), int(self.IMAGE_WIDTH * 0.75)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.80)
+        x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
+        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
         
-        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3) 
-        # cv.imshow('Image with Rectangle', rgb)
-        # cv.waitKey(0)
+        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
         
-        roi = mask[y1:y2, x1:x2]
+        roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
         total_pixels = float(roi.size)
         self.mask_size = (white_pixels / total_pixels)  
+
+        self.current_image = np.concatenate((rgb, np.expand_dims(self.current_mask, axis=-1)), axis=2)
          
         return np.array(np.fliplr(np.flipud(rgb)))
 
@@ -506,3 +674,9 @@ class EnvV0(env_base_0.MujocoEnv):
     
     def calculate_img_reward(self, perc):        
         return (2.0/(1+np.exp(-perc*10.0))) - 1.0 
+    
+    def close(self):
+        self.image_queue.put("close")
+        self.mask_process.join()
+    
+    

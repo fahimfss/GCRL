@@ -206,11 +206,11 @@ class WrappedEnv(Env):
         
         return done, new_info
 
-    def reset(self, create_vid=False, reset_stats=True):
+    def reset(self, create_vid=False, reset_stats=True, **kwargs):
         if create_vid:
-            ret = self._wrapped_env.reset(create_vid=create_vid)
+            ret = self._wrapped_env.reset(create_vid=create_vid, **kwargs)
         else:
-            ret = self._wrapped_env.reset()
+            ret = self._wrapped_env.reset(**kwargs)
         if reset_stats:
             self._reset_stats()
         return ret

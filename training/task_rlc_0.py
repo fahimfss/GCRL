@@ -42,18 +42,20 @@ def parse_args():
     
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
     parser.add_argument('--task_name', default='baseline', type=str)
-    parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
-    parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
-    parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
+    parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
+    parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
+    parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
+    parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+    parser.add_argument('--gt_steps', default=50_000, type=str)
     parser.add_argument('--mask_delay_type', default='none', type=str)
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=400_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -66,7 +68,7 @@ def parse_args():
     parser.add_argument('--critic_target_update_freq', default=1, type=int)
     
     # actor
-    parser.add_argument('--actor_lr', default=2e-4, type=float)
+    parser.add_argument('--actor_lr', default=1e-4, type=float)
     parser.add_argument('--actor_update_freq', default=1, type=int)
     parser.add_argument('--actor_sync_freq', default=8, type=int)   # Sync mode: False
     
@@ -90,9 +92,9 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_model_freq', default=25_000, type=int)
-    parser.add_argument('--load_model', default=60000, type=int)
+    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model_freq', default=500_000, type=int)
+    parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
 
@@ -168,6 +170,7 @@ def main(seed=-1, env_name=None):
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
+                   mask_type=args.mask_type,
                    mask_delay_type=args.mask_delay_type,
                    mask_delay_steps=args.mask_delay_steps)
     env = WrappedEnv(env, 200)
@@ -189,14 +192,24 @@ def main(seed=-1, env_name=None):
     if args.eval_steps > 0:
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC'
-        eval_queue = mp.Queue()        
-        eval_process = start_eval_process(eval_args, 
-                                          args.work_dir, 
-                                          eval_queue, 
-                                          args.num_eval_episodes)
+        eval_queue_1 = mp.Queue()
+        eval_queue_2 = mp.Queue()
+        path1 = os.path.join(args.work_dir, 'eval_log')
+        path2 = os.path.join(args.work_dir, 'eval_result') 
+        make_dir(path1)
+        make_dir(path2)
+        eval_process_1 = start_eval_process(eval_args, 
+                                            path1, 
+                                            eval_queue_1, 
+                                            args.num_eval_episodes)
+        eval_process_2 = start_eval_process(eval_args, 
+                                            path2, 
+                                            eval_queue_2, 
+                                            args.num_eval_episodes,
+                                            False)
 
     update_paused = True
-    state = env.reset()
+    state = env.reset(create_vid=False)
     
     first_step = True
 
@@ -217,7 +230,13 @@ def main(seed=-1, env_name=None):
         state = next_state
 
         if done or 'truncated' in info: 
-            state = env.reset()
+            if args.mask_type == "gt_gdino_async" and env.total_steps >= args.gt_steps:
+                state = env.reset(create_vid=False, set_gdino_async=True)
+                args.gt_steps = args.env_steps * 2
+                eval_queue_1.put('start_gdino_async')
+                eval_queue_2.put('start_gdino_async')
+            else:
+                state = env.reset(create_vid=False)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time
@@ -249,8 +268,11 @@ def main(seed=-1, env_name=None):
             agent.checkpoint(env.total_steps)
             
         if env.total_steps % args.eval_steps == 0:
-            eval_queue.put(agent.get_actor_params())
-            eval_queue.put(env.total_steps)
+            eval_queue_1.put(agent.get_actor_params())
+            eval_queue_1.put(env.total_steps)
+            
+            eval_queue_2.put(agent.get_actor_params())
+            eval_queue_2.put(env.total_steps)
 
     if not args.sync_mode:
         agent.pause_update()
@@ -258,11 +280,14 @@ def main(seed=-1, env_name=None):
         agent.checkpoint(env.total_steps)
         
     if args.eval_steps > 0:    
-        eval_queue.put('close')
-        eval_process.join()
+        eval_queue_1.put('close')
+        eval_queue_2.put('close')
+        eval_process_1.join()
+        eval_process_2.join()
         
     L.plot()
     L.close()
+    env.close()
 
     agent.close()
 

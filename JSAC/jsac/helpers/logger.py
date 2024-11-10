@@ -216,13 +216,14 @@ class Logger(object):
                         self._returns.append(dict['return']) 
                         self._episode_steps.append(dict['episode_steps'])
 
-            start_step = self._args['start_step']
-            config_name = f'config_{start_step}.txt'
-            config_path = os.path.join(self._log_dir, config_name) 
-            with open(config_path, 'w') as cfl:
-                for key, value in self._args.items():
-                    cfl.write(f'{key} -> {value}')
-                    cfl.write('\n\n')
+            if self._args:
+                start_step = self._args['start_step']
+                config_name = f'config_{start_step}.txt'
+                config_path = os.path.join(self._log_dir, config_name) 
+                with open(config_path, 'w') as cfl:
+                    for key, value in self._args.items():
+                        cfl.write(f'{key} -> {value}')
+                        cfl.write('\n\n')
 
         plot_name = 'eval_learning_curve' if self._eval else 'learning_curve'
         self._plot_path = os.path.join(self._log_dir, f'{plot_name}.png') 
