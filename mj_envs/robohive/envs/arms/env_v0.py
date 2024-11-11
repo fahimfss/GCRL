@@ -201,7 +201,7 @@ class EnvV0(env_base_0.MujocoEnv):
             number = self.target_obj_num 
         
         reset_qpos = self.sim.model.key_qpos[0].copy()
-        
+
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number]
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
@@ -295,16 +295,29 @@ class EnvV0(env_base_0.MujocoEnv):
     #setting a boundary of virtual box such that the arm will not accidentally
     def check_collision(self):
         """ Check if any joint is out of the defined boundary """
-        x_min, x_max = -1.5, 1.5
-        y_min, y_max = -1.7, 1.5
-        z_min, z_max = 0.85, 2.23
-        for i in range(1, 13):
-            joint_frame_id = self.sim.model.jnt_bodyid[i]
-            joint_pos = self.sim.data.xpos[joint_frame_id]
-            if not (x_min <= joint_pos[0] <= x_max and 
-                    y_min <= joint_pos[1] <= y_max and 
-                    z_min <= joint_pos[2] <= z_max):
-                return True
+        if "ur10e" in self.sim.model.name: ## BOUNDARIES FOR UR10eEnv-v0
+            x_min, x_max = -1.5, 1.5
+            y_min, y_max = -1.7, 1.5
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 13):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+        elif "franka" in self.sim.model.name:
+            x_min, x_max = -3, 3
+            y_min, y_max = -3, 3
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 9):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+
         return False
     
     def save_state(self):
@@ -345,6 +358,7 @@ class EnvV0(env_base_0.MujocoEnv):
                                         dt = self.dt,
                                         render_cbk=self.mj_render if self.mujoco_render_frames else None)
         else:
+            # print(self.action_space)
             a = np.clip(a, self.action_space.low, self.action_space.high)
             self.fixed_positions = None
             self.last_ctrl = self.robot.step(ctrl_desired=a,
@@ -353,12 +367,11 @@ class EnvV0(env_base_0.MujocoEnv):
                                         render_cbk=self.mj_render if self.mujoco_render_frames else None)
 
 
-        if self.check_collision():
-            # print("Collision detected, reverting action")
+        if self.check_collision(): # THIS WAS RESPONSIBLE FOR A LOT OF BAD THINGS
+            print("Collision detected, reverting action")
             self.restore_state()
      
         self.final_image = self.current_image
-
         return self.forward(self.final_image, **kwargs)
      
     

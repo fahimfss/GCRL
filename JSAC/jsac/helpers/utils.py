@@ -313,6 +313,8 @@ def render_interactive(env):
     offscreen_context = mujoco.MjrContext(env.model, 0)
     viewport = mujoco.MjrRect(0, 0, width, height)
     scene = mujoco.MjvScene(env.model, maxgeom=1000)
+    print(env.model.jnt_range)
+    # print(env.model.njnt)
     while env.viewer.is_running():
         mujoco.mj_step(env.model, env.data, 20)
         env.sync_view()
@@ -336,6 +338,6 @@ def render_interactive(env):
 
 
 
-            
-            
-            
+
+
+  

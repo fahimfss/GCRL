@@ -64,14 +64,11 @@ class Robot():
         self.name = robot_name+'(sim)' if is_hardware is None else robot_name+'(hdr)'
         self._act_mode = act_mode
         self.is_hardware = bool(is_hardware)
-        self.act_mid = np.zeros(7)
-        self.act_rng = np.ones(7) * 2
+        self.act_mid = np.zeros(8)
+        self.act_rng = np.ones(8) * 2
         self._sensor_cache_maxsize = sensor_cache_maxsize
         self._noise_scale = noise_scale
-        config_path = path.join(
-            path.dirname(__file__),
-            "../envs/arms/ur10e/ur10e_config.xml",
-        )
+
 
         if random_generator == None:
             self.np_random = np.random
@@ -89,6 +86,12 @@ class Robot():
         else:
             # use provided sim
             self.sim = mj_sim
+
+
+        config_path = path.join( ## NEED TO HANDLE BOTH ENVIRONMENTS
+            path.dirname(__file__),
+            "../envs/arms/franka/franka_config.xml" if "franka" in self.sim.model.name else "../envs/arms/ur10e/ur10e_config.xml",
+        )
 
         # Configure the robot
         if self.robot_config is None:
@@ -691,7 +694,6 @@ class Robot():
         n_frames=int(dt/self.sim.step_duration)
         self.sim.data.ctrl[:] = ctrl_feasible
         self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
-
         return ctrl_feasible
     
     def _ctrl_velocity_limits(self, ctrl_velocity: np.ndarray, last_robot_qpos, dt):

@@ -9,7 +9,8 @@ import mujoco
 
 from jsac.helpers.utils import render_interactive
 
-class Franka_Env(gym.Wrapper):
+
+class Unified_Env(gym.Wrapper):
     def __init__(self, 
                  env_name,  
                  image_history=2, 
@@ -73,18 +74,12 @@ class Franka_Env(gym.Wrapper):
     def step(self, a):
         assert self._reset
         ob, reward, terminated, truncated, info = self.env.step(a)
-        
         new_img = ob['image']
         prop = ob['vector']
         done = terminated 
         
         msk = (new_img[:, :, 3:4].squeeze(-1),)*3
 
-        # path = '/home/fahim/project/RLC/training/results/images/'
-        # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
-        # img_name = f'{path}{ln}.png'
-        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # print(info['prompt'])
         
         if self._create_video: 
             self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, msk)
@@ -194,6 +189,7 @@ class Franka_Env(gym.Wrapper):
         
     def close(self):
         super().close()
+
         del self
 
 
@@ -202,7 +198,9 @@ class Franka_Env(gym.Wrapper):
 
 
 if __name__=="__main__":
-
-    env = Franka_Env(env_name="UR10eEnv-v0",render_interactive=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
+    args = parser.parse_args()
+    env = Unified_Env(env_name=args.env_name, render_interactive=True) # replace model path accordingly
     render_interactive(env)
-    

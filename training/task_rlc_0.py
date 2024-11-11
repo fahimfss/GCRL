@@ -15,7 +15,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 from jsac.helpers.logger import Logger
 from jsac.helpers.eval import start_eval_process
-from jsac.envs.rl_chemist.ur10 import Franka_Env
+from jsac.envs.rl_chemist.unified_env import Unified_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
 
@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
     parser.add_argument('--task_name', default='baseline', type=str)
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
@@ -164,7 +164,7 @@ def main(seed=-1, env_name=None):
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb)
 
-    env = Franka_Env(args.env_name, 
+    env = Unified_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
