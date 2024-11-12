@@ -63,10 +63,10 @@ def create_mask(image_source, boxes) -> np.ndarray:
             
             if px2 - px1 > 0.8 and py2 - py1 > 0.8:
                 pass
-            # elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
-            #     pass 
-            # elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
-            #     pass 
+            elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
+                pass 
+            elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
+                pass 
             else: 
                 top_left = (int(xyxy[0]), int(xyxy[1]))
                 bottom_right = (int(xyxy[2]), int(xyxy[3]))
