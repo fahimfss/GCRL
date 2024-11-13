@@ -143,7 +143,7 @@ class BaseAgent:
         t1 = time.time()
         
         if self._sync_queue:
-            self._sync_queue.get(timeout=60)
+            self._sync_queue.get(timeout=400)
          
         batch = self._replay_buffer.sample()
                 
