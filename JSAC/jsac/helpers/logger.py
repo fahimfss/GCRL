@@ -58,6 +58,8 @@ class MetersGroup(object):
         self._file_name = file_name
         self._formating = formating
         self._meters = defaultdict(AverageMeter)
+        
+        ## For these items, the latest value is reported
         self._value_items = ['num_updates', 
                              'battery_charge', 
                              'episode', 
@@ -72,7 +74,8 @@ class MetersGroup(object):
                                  'episode', 
                                  'episode_steps', 
                                  'eval_step',
-                                 'step']
+                                 'step',
+                                 'gdino_step']
 
     def log(self, key, value, n=1):
         if key in self._value_items:

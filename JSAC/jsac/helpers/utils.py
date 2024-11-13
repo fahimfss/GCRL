@@ -169,6 +169,10 @@ class WrappedEnv(Env):
             new_info['prompt'] = info['prompt']
             new_info['reach_err'] = np.array(info['reach_err'])  
             new_info['reach_err'] = np.linalg.norm(new_info['reach_err'])
+        
+        if 'gdino_step' in info:
+            new_info['gdino_step'] = info['gdino_step']
+            new_info['gdino_time'] =  info['gdino_time']
             
         if 'battery_charge' in info:
             new_info['battery_charge'] = info['battery_charge']

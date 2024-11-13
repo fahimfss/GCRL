@@ -81,20 +81,27 @@ def create_mask(image_source, boxes) -> np.ndarray:
 
         return mask
     
-def async_g_dino(image_queue, mask_queue):
+def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
     # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
     #                 "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
     
     model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
                        "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+    count = 0
+    
+    img_shm = mp.shared_memory.SharedMemory(name=mem_name) 
+    img = np.ndarray(img_shape, dtype=np.uint8, buffer=img_shm.buf)
+    h, w, c = img_shape 
+    
     while True:
-        data = image_queue.get()
-        if isinstance(data, str):
-            if data == 'close':
-                return 
-        img, target_name = data  
-        h, w, c = img.shape 
-        pil_image = Image.fromarray(img)  
+        data = image_queue.get() 
+        if data == 'close':
+            img_shm.close()
+            return 
+        target_name = data  
+        
+        pil_image = Image.fromarray(img.copy())  
+        t1 = time.time()
         boxes, logits, phrases = predict(
             model=model,
             image=load_image(pil_image, [w, h]),
@@ -102,13 +109,13 @@ def async_g_dino(image_queue, mask_queue):
             box_threshold=BOX_THRESHOLD,
             text_threshold=TEXT_THRESHOLD
         ) 
+        t2 = time.time()
+        count += 1 
         if logits.nelement() > 0:
             _, indices = torch.max(logits, dim = 0)
             boxes = boxes.numpy()
             boxes = boxes[indices]
-        mask = np.zeros((h,  w), dtype=np.uint8)  
-        mask = create_mask(mask, boxes=boxes) 
-        mask_queue.put(mask)
+        mask_queue.put((boxes, t2 - t1, count))
 
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'qv_robot']
@@ -156,6 +163,8 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_r = 0
         self.camera_matrix = None
         self.current_mask = None
+        self.gdino_time = 0
+        self.gdino_step = 0
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -190,7 +199,14 @@ class EnvV0(env_base_0.MujocoEnv):
         elif self.mask_type == "gdino_async" or self.mask_type == "gt_gdino_async":
             self.image_queue = mp.Queue()
             self.mask_queue = mp.Queue()
-            self.mask_process = mp.Process(target=async_g_dino, args=(self.image_queue, self.mask_queue))
+            
+            img_shape = (self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3)
+            original_array = np.zeros(img_shape, dtype=np.uint8)
+            self.img_shm = mp.shared_memory.SharedMemory(create=True, size=original_array.nbytes)
+            self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
+            
+            self.mask_process = mp.Process(target=async_g_dino, args=(img_shape, self.img_shm.name, self.image_queue, self.mask_queue))
+            # async_g_dino(img_shape, mem_name, image_queue, mask_queue):
             self.mask_process.start()
             self.images_sent = 0
             self.masks_recieved = 0
@@ -234,6 +250,7 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
         obs_dict['mask_size'] = np.array([self.mask_size]) 
+ 
         self.current_observation = self.get_observation()
 
         this_model = sim.model
@@ -532,6 +549,7 @@ class EnvV0(env_base_0.MujocoEnv):
                 self.mask_step -= 1
         elif self.mask_type == "gdino_sync":
             pil_image = Image.fromarray(rgb)
+            t1 = time.time()
             boxes, logits, phrases = predict(
                 model=self.mask_model,
                 image=load_image(pil_image, [self.IMAGE_WIDTH, self.IMAGE_HEIGHT]),
@@ -539,6 +557,9 @@ class EnvV0(env_base_0.MujocoEnv):
                 box_threshold=BOX_THRESHOLD,
                 text_threshold=TEXT_THRESHOLD
             )
+            t2 = time.time()
+            self.gdino_step += 1
+            self.gdino_time = t2 - t1
             if logits.nelement() > 0:
                 _, indices = torch.max(logits, dim = 0)
                 boxes = boxes.numpy()
@@ -547,16 +568,23 @@ class EnvV0(env_base_0.MujocoEnv):
             self.current_mask = create_mask(mask, boxes=boxes)
         elif self.mask_type == "gdino_async":
             if self.current_mask is None:
-                self.image_queue.put((rgb, self.target_name))
+                np.copyto(self.img_arr, rgb)
+                self.image_queue.put(self.target_name)
                 self.images_sent += 1
-                self.current_mask = self.mask_queue.get()
+                
+                boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
+                mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
+                self.current_mask = create_mask(mask, boxes=boxes) 
                 self.masks_recieved += 1
             else:
                 if self.images_sent == 1:
-                    self.image_queue.put((rgb, self.target_name))
+                    np.copyto(self.img_arr, rgb)
+                    self.image_queue.put(self.target_name)
                     self.images_sent += 1
                 if not self.mask_queue.empty():
-                    self.current_mask = self.mask_queue.get()
+                    boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
+                    mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
+                    self.current_mask = create_mask(mask, boxes=boxes) 
                     self.masks_recieved += 1
                     self.image_queue.put((rgb, self.target_name))
                     self.images_sent += 1
