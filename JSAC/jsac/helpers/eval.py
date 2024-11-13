@@ -49,13 +49,17 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
             env_mode = "eval"
         else:
             env_mode = "train"
+        step_time = None
+        if args['step_time'] > 0:
+            step_time = args['step_time']
         env = UR10_ENV(args['env_name'], 
                           args['image_history'], 
                           args['image_width'], 
                           args['image_height'],  
                           mask_type=args['mask_type'],
                           env_mode=env_mode,
-                          video_path=args['video_dir'])
+                          video_path=args['video_dir'],
+                          step_time=step_time)
         env = WrappedEnv(env, 200)
         
     env_steps = int(args['env_steps'])

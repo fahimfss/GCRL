@@ -33,7 +33,7 @@ def load_model(model_config_path: str, model_checkpoint_path: str, device: str =
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
     model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
     model.eval()
-    return model
+    return model.to(device)
 
 
 def load_image(image_path: str, inference_image_size) -> Tuple[np.array, torch.Tensor]:
@@ -68,8 +68,8 @@ def predict(
     # cv2.waitKey(delay=2000) 
     # cv2.destroyAllWindows()
 
-    model = model.to(device)
-    image = image.to(device)
+    # model = model.to(device) 
+    image = image.to(device) 
 
     with torch.no_grad():
         outputs = model(image[None], captions=[caption])

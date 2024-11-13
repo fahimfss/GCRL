@@ -4,6 +4,7 @@ import copy
 import math
 import torch
 import random
+import torch.jit
 import cv2 as cv
 import collections
 import numpy as np
@@ -22,7 +23,7 @@ from groundingdino.util.inference import load_model, predict
 BOX_THRESHOLD = 0.40
 TEXT_THRESHOLD = 0.25
 
-def load_image(image_source, image_size):
+def load_image(image_source: torch.Tensor, image_size: int):
         transform = T.Compose(
             [
                 T.RandomResize(image_size),
@@ -100,7 +101,7 @@ def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
             return 
         target_name = data  
         
-        pil_image = Image.fromarray(img.copy())  
+        pil_image = Image.fromarray(img.copy())   
         t1 = time.time()
         boxes, logits, phrases = predict(
             model=model,
@@ -109,7 +110,7 @@ def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
             box_threshold=BOX_THRESHOLD,
             text_threshold=TEXT_THRESHOLD
         ) 
-        t2 = time.time()
+        t2 = time.time() 
         count += 1 
         if logits.nelement() > 0:
             _, indices = torch.max(logits, dim = 0)
@@ -165,6 +166,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.current_mask = None
         self.gdino_time = 0
         self.gdino_step = 0
+        self.TM = time.time()
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -230,6 +232,12 @@ class EnvV0(env_base_0.MujocoEnv):
         if 'target_obj_num' in kwargs:
             self.target_obj_num = kwargs['target_obj_num'] 
             kwargs.pop('target_obj_num')
+            
+        if 'step_time' in kwargs:
+            self.step_time = kwargs['step_time'] 
+            kwargs.pop('step_time')
+        else:
+            self.step_time = None
 
         super()._setup(obs_keys=obs_keys,
                        proprio_keys=proprio_keys,
@@ -417,6 +425,8 @@ class EnvV0(env_base_0.MujocoEnv):
         self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
         
         self.final_image = self.current_image
+        
+        self.TM = time.time()
         return {'image': self.final_image, 'vector': obs}
     
 
@@ -506,6 +516,12 @@ class EnvV0(env_base_0.MujocoEnv):
         if self.check_collision():
             # print("Collision detected, reverting action")
             self.restore_state()
+            
+        if self.step_time: 
+            dt = time.time() - self.TM 
+            if dt < self.step_time: 
+                time.sleep(self.step_time - dt)
+            self.TM = time.time()
      
         self.final_image = self.current_image
 
@@ -557,7 +573,7 @@ class EnvV0(env_base_0.MujocoEnv):
                 box_threshold=BOX_THRESHOLD,
                 text_threshold=TEXT_THRESHOLD
             )
-            t2 = time.time()
+            t2 = time.time() 
             self.gdino_step += 1
             self.gdino_time = t2 - t1
             if logits.nelement() > 0:
@@ -586,7 +602,9 @@ class EnvV0(env_base_0.MujocoEnv):
                     mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
                     self.current_mask = create_mask(mask, boxes=boxes) 
                     self.masks_recieved += 1
-                    self.image_queue.put((rgb, self.target_name))
+                    
+                    np.copyto(self.img_arr, rgb)
+                    self.image_queue.put(self.target_name)
                     self.images_sent += 1
                     
                  

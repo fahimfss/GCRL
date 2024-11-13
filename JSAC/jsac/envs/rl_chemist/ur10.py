@@ -17,6 +17,7 @@ class UR10_ENV(gym.Wrapper):
                  target_obj_num=-1,
                  mask_delay_type="none",
                  mask_delay_steps=2,
+                 step_time=None,
                  video_path="."):
 
         if target_obj_num >= 0:
@@ -24,11 +25,19 @@ class UR10_ENV(gym.Wrapper):
                                       env_mode=env_mode, 
                                       target_obj_num=target_obj_num))
         else:
-            super().__init__(gym.make(f'robohive.envs:{env_name}', 
-                                      env_mode=env_mode,
-                                      mask_type=mask_type,
-                                      mask_delay_type=mask_delay_type,
-                                      mask_delay_steps=mask_delay_steps))
+            if step_time:
+                super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                        env_mode=env_mode,
+                                        mask_type=mask_type,
+                                        mask_delay_type=mask_delay_type,
+                                        mask_delay_steps=mask_delay_steps,
+                                        step_time=step_time))
+            else:
+                super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                                        env_mode=env_mode,
+                                        mask_type=mask_type,
+                                        mask_delay_type=mask_delay_type,
+                                        mask_delay_steps=mask_delay_steps))
 
         self._env_name = env_name
         self._image_history = image_history

@@ -45,8 +45,9 @@ def parse_args():
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
     parser.add_argument('--gt_steps', default=50_000, type=str)
+    parser.add_argument('--step_time', default=0.05, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
@@ -166,13 +167,17 @@ def main(seed=-1, env_name=None):
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb)
 
+    step_time = None
+    if args.step_time > 0:
+        step_time = args.step_time
     env = UR10_ENV(args.env_name, 
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
                    mask_type=args.mask_type,
                    mask_delay_type=args.mask_delay_type,
-                   mask_delay_steps=args.mask_delay_steps)
+                   mask_delay_steps=args.mask_delay_steps,
+                   step_time=step_time)
     env = WrappedEnv(env, 200)
 
     set_seed_everywhere(seed=args.seed)
@@ -267,7 +272,7 @@ def main(seed=-1, env_name=None):
             env.total_steps < args.env_steps:
             agent.checkpoint(env.total_steps)
             
-        if env.total_steps % args.eval_steps == 0:
+        if args.eval_steps > 0 and env.total_steps % args.eval_steps == 0:
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
             
