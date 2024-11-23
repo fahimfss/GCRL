@@ -68,7 +68,9 @@ class MetersGroup(object):
                              'return', 
                              'step', 
                              'eval_step',
-                             'elapsed_time']
+                             'elapsed_time',
+                             'gdino_step',
+                             'gdino_accuracy']
         self._int_value_items = ['num_updates', 
                                  'battery_charge', 
                                  'episode', 

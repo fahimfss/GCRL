@@ -173,6 +173,7 @@ class WrappedEnv(Env):
         if 'gdino_step' in info:
             new_info['gdino_step'] = info['gdino_step']
             new_info['gdino_time'] =  info['gdino_time']
+            new_info['gdino_accuracy'] =  info['gdino_accuracy']
             
         if 'battery_charge' in info:
             new_info['battery_charge'] = info['battery_charge']

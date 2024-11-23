@@ -57,6 +57,7 @@ def create_mask(image_source, boxes) -> np.ndarray:
 
         # Create a black mask
         mask = np.zeros((h, w), dtype=np.uint8)
+        center = (-2000, -2000)
             
         if xyxy.size != 0:
             px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
@@ -71,6 +72,7 @@ def create_mask(image_source, boxes) -> np.ndarray:
             else: 
                 top_left = (int(xyxy[0]), int(xyxy[1]))
                 bottom_right = (int(xyxy[2]), int(xyxy[3]))
+                center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
                 cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
                 white_pixels = np.argwhere(mask == 255)
             
@@ -80,7 +82,7 @@ def create_mask(image_source, boxes) -> np.ndarray:
                 # Convert from (row, col) to (x, y)
                 centroid = (centroid[1], centroid[0])
 
-        return mask
+        return mask, center
     
 def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
     # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
@@ -118,6 +120,24 @@ def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
             boxes = boxes[indices]
         mask_queue.put((boxes, t2 - t1, count))
 
+def is_gdino_accurate(gt_pos, gdino_pos, dist, image_width, image_height):
+    mlt = (-0.5 * dist) + 1.5 
+    acceptable_dist = (image_width / 7.5) * mlt 
+    if isinstance(acceptable_dist, np.ndarray):
+        acceptable_dist = acceptable_dist[0]
+    distance = math.sqrt((gt_pos[0] - gdino_pos[0])**2 + (gt_pos[1] - gdino_pos[1])**2)
+    
+    if gdino_pos[0] == -2000 and gdino_pos[1] == -2000:
+        w_tol = image_width * 0.025
+        h_tol = image_height * 0.025
+        if gt_pos[0] < w_tol and gt_pos[0] > image_width - w_tol and gt_pos[1] < h_tol and gt_pos[1] > image_height - h_tol:
+            # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist, "Out of bounds")
+            return True
+        return False
+
+    # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist)
+    return distance < acceptable_dist
+
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'qv_robot']
     
@@ -139,7 +159,7 @@ class EnvV0(env_base_0.MujocoEnv):
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
-               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
                mask_delay_type = "none",    # "none", "n_step", "sequential"
                mask_delay_steps = 2,
                obs_keys=DEFAULT_OBS_KEYS,
@@ -166,6 +186,11 @@ class EnvV0(env_base_0.MujocoEnv):
         self.current_mask = None
         self.gdino_time = 0
         self.gdino_step = 0
+        self.gdino_error = 0
+        self.gdino_num_accurate = 0
+        self.gdino_accuracy = 0
+        self.gs = 0
+        self.distance = 1.0
         self.TM = time.time()
         
         self.env_mode = env_mode
@@ -198,7 +223,7 @@ class EnvV0(env_base_0.MujocoEnv):
             # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
             #                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
             
-        elif self.mask_type == "gdino_async" or self.mask_type == "gt_gdino_async":
+        elif self.mask_type == "gdino_async":
             self.image_queue = mp.Queue()
             self.mask_queue = mp.Queue()
             
@@ -212,18 +237,14 @@ class EnvV0(env_base_0.MujocoEnv):
             self.mask_process.start()
             self.images_sent = 0
             self.masks_recieved = 0
-            if self.mask_type == "gt_gdino_async":
-                self.mask_type = "ground_truth"
-                self.mask_delay_type = "n_step"
-                self.mask_delay_steps = 2
                 
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
         
         self.target_name = "apple"
         
-        self.TS = ['object_1', 'object_2',    'object_3', 'object_4',    'object_5',        'object_6', 'object_7',     'object_8']
-        self.TN = ['apple',    'green block', 'donut',    'glass flask', 'yellow toy duck', 'banana',   'purple clock', 'cup'     ]
+        self.TS = ['object_1',  'object_2',    'object_3',    'object_4',    'object_5',        'object_6', 'object_7',     'object_8']
+        self.TN = ['red apple', 'green block', 'brown donut', 'glass flask', 'yellow toy duck', 'banana',   'purple clock', 'cup'     ]
         # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
@@ -257,7 +278,7 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['claw_ori_err'] = obs_dict['xmat_pinch'] - np.array([-np.pi, 0, -np.pi/2])
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
-        obs_dict['mask_size'] = np.array([self.mask_size]) 
+        obs_dict['mask_size'] = np.array([self.mask_size])  
  
         self.current_observation = self.get_observation()
 
@@ -287,7 +308,7 @@ class EnvV0(env_base_0.MujocoEnv):
         return obs_vec
     
     def get_reward_dict(self, obs_dict):
-        distance_reward = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
+        self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
 
@@ -300,7 +321,7 @@ class EnvV0(env_base_0.MujocoEnv):
             print('Second touch!') 
              
         rwd_dict = collections.OrderedDict((
-            ('distance',  distance_reward),
+            ('distance',  self.distance),
             ('contact', contact),
             ('penalty', np.array([-1])),  
             ('mask_size',  mask_size_reward),
@@ -335,15 +356,18 @@ class EnvV0(env_base_0.MujocoEnv):
                 reset_qpos[object_qpos_adr] = x_pos
                 reset_qpos[object_qpos_adr + 1] = y_pos
     
-    def reset(self, reset_qpos=None, **kwargs):
+    def reset(self, reset_qpos=None, **kwargs): 
+        print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
+        
         self.current_mask = None
+        self.gdino_error = 0
+        self.gdino_num_accurate = 0
+        self.gdino_accuracy = 0
+        self.distance = 1.0
+        self.gs = 0
+
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
-        
-        if self.mask_type == "ground_truth" and "set_gdino_async" in kwargs:
-            self.mask_type = "gdino_async"
-            self.mask_delay_type = "none"
-            kwargs.pop("set_gdino_async")
         
         if self.mask_type == "gdino_async":
             while(self.images_sent > self.masks_recieved):
@@ -364,7 +388,8 @@ class EnvV0(env_base_0.MujocoEnv):
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
         self.target_name = self.TN[number] 
-        self.target_site_name = self.TS[number]
+        self.target_site_name = self.TS[number] 
+        print("target:", self.target_name)
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
  
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
@@ -581,7 +606,16 @@ class EnvV0(env_base_0.MujocoEnv):
                 boxes = boxes.numpy()
                 boxes = boxes[indices] 
             mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.current_mask = create_mask(mask, boxes=boxes)
+            self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
+            
+            gt_center = int(self.target_x), int(self.target_y)
+            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.gdino_num_accurate += 1
+            self.gs += 1
+            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+            
+            # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
+
         elif self.mask_type == "gdino_async":
             if self.current_mask is None:
                 np.copyto(self.img_arr, rgb)
@@ -590,7 +624,8 @@ class EnvV0(env_base_0.MujocoEnv):
                 
                 boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
                 mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                self.current_mask = create_mask(mask, boxes=boxes) 
+                self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
+                
                 self.masks_recieved += 1
             else:
                 if self.images_sent == 1:
@@ -600,14 +635,22 @@ class EnvV0(env_base_0.MujocoEnv):
                 if not self.mask_queue.empty():
                     boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
                     mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                    self.current_mask = create_mask(mask, boxes=boxes) 
+                    self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
+                    
                     self.masks_recieved += 1
                     
                     np.copyto(self.img_arr, rgb)
                     self.image_queue.put(self.target_name)
                     self.images_sent += 1
                     
-                 
+            gt_center = int(self.target_x), int(self.target_y)
+            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.gdino_num_accurate += 1
+            self.gs += 1
+            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+            
+            # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time, "  target: ", gt_center)
+            
         #define the grasping rectangle
         x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
         y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)

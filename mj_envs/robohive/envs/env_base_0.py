@@ -492,7 +492,8 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
                 'prompt': self.target_name,
                 'reach_err': self.obs_dict['reach_err'],
                 'gdino_step':self.gdino_step,
-                'gdino_time':self.gdino_time
+                'gdino_time':self.gdino_time,
+                'gdino_accuracy':self.gdino_accuracy
             }
         return env_info
 

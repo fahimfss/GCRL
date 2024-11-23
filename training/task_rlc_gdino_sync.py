@@ -41,11 +41,11 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gt_gdino_async', type=str)
+    parser.add_argument('--task_name', default='gdino_sync', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--mask_type', default='gt_gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+    parser.add_argument('--mask_type', default='gdino_sync', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
     parser.add_argument('--gt_steps', default=50_000, type=str)
     parser.add_argument('--step_time', default=0.05, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)
@@ -56,9 +56,9 @@ def parse_args():
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=400_000, type=int)
+    parser.add_argument('--env_steps', default=20_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
-    parser.add_argument('--sync_mode', default=False, action='store_true')
+    parser.add_argument('--sync_mode', default=True, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
     
     # critic
@@ -277,12 +277,12 @@ def main(seed=-1, env_name=None):
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
             
-            time.sleep(105)
+            time.sleep(350)
             
             eval_queue_2.put(agent.get_actor_params())
             eval_queue_2.put(env.total_steps)
             
-            time.sleep(105)
+            time.sleep(350)
 
     if not args.sync_mode:
         agent.pause_update()

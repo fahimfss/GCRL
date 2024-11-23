@@ -91,9 +91,6 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                 logger.close() 
                 env.close()
                 sys.exit()
-            if data == 'start_gdino_async':
-                env.reset(create_vid=vid, set_gdino_async=True)
-                continue
         else:
             params = data
             step = int(eval_queue.get())
@@ -137,5 +134,6 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                 
                 # if step % env_steps == 0 and epi == 5:
                 #     vid = False
-                
+        if 'sync' in args:
+            eval_queue.put(1)
         logger.plot()
