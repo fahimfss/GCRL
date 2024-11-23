@@ -51,11 +51,11 @@ def parse_args():
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=6000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
-    parser.add_argument('--init_steps', default=1_000, type=int)
-    parser.add_argument('--env_steps', default=6000, type=int)
+    parser.add_argument('--init_steps', default=5_000, type=int)
+    parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -84,12 +84,12 @@ def parse_args():
     parser.add_argument('--num_cameras', default=1, type=int)
     parser.add_argument('--update_every', default=1, type=int)
     parser.add_argument('--log_every', default=1, type=int)
-    parser.add_argument('--eval_steps', default=2000, type=int)
-    parser.add_argument('--num_eval_episodes', default=2, type=int)
+    parser.add_argument('--eval_steps', default=10_000, type=int)
+    parser.add_argument('--num_eval_episodes', default=10, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tensorboard', default=False, 
                         action='store_true')
-    parser.add_argument('--xtick', default=2000, type=int)
+    parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
     parser.add_argument('--save_model', default=True, action='store_true')

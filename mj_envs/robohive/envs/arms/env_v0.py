@@ -357,7 +357,7 @@ class EnvV0(env_base_0.MujocoEnv):
                 reset_qpos[object_qpos_adr + 1] = y_pos
     
     def reset(self, reset_qpos=None, **kwargs): 
-        print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
+        # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
         
         self.current_mask = None
         self.gdino_error = 0
@@ -389,7 +389,7 @@ class EnvV0(env_base_0.MujocoEnv):
         
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number] 
-        print("target:", self.target_name)
+        # print("target:", self.target_name)
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
  
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
