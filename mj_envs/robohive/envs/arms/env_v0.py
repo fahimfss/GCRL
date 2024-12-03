@@ -85,11 +85,11 @@ def create_mask(image_source, boxes) -> np.ndarray:
         return mask, center
     
 def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
-    # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-    #                 "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+    model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
     
-    model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-                       "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+    # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+    #                    "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
     count = 0
     
     img_shm = mp.shared_memory.SharedMemory(name=mem_name) 
@@ -217,11 +217,11 @@ class EnvV0(env_base_0.MujocoEnv):
             }
             
         if self.mask_type == "gdino_sync":
-            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-                                         "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+            #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
             
-            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-            #                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
             
         elif self.mask_type == "gdino_async":
             self.image_queue = mp.Queue()
@@ -365,6 +365,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_accuracy = 0
         self.distance = 1.0
         self.gs = 0
+        self.single_touch = 0
 
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
