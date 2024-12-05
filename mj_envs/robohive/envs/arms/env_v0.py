@@ -244,7 +244,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_name = "apple"
         
         self.TS = ['object_1',  'object_2',    'object_3',    'object_4',    'object_5',        'object_6', 'object_7',     'object_8']
-        self.TN = ['red apple', 'green block', 'brown donut', 'glass flask', 'yellow toy duck', 'banana',   'purple clock', 'cup'     ]
+        self.TN = ['red apple', 'green block', 'baked donut', 'glass flask', 'yellow toy duck', 'banana',   'purple clock', 'cup'     ]
         # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
