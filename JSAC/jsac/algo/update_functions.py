@@ -244,13 +244,16 @@ def batched_augmentations(key, images, config=None):
     """Apply augmentations to a batch of images."""
     if config is None:
         config = {
-            'contrast_lower': 0.5,
-            'contrast_upper': 1.5,
-            'brightness_delta': 0.2,
-            'saturation_lower': 0.5,
-            'saturation_upper': 1.5,
-            'blur_kernel_size': 5,
-            'blur_sigma_range': (0.1, 2.0)
+            'contrast_lower': 0.8,
+            'contrast_upper': 1.2,
+            
+            'brightness_delta': 0.1,
+            
+            'saturation_lower': 0.8,
+            'saturation_upper': 1.2,
+            
+            'blur_kernel_size': 3, 
+            'blur_sigma_range': (0.1, 0.5)
         }
     
     # Generate keys for each image in the batch

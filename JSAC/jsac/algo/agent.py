@@ -56,7 +56,8 @@ class BaseAgent:
                 self._action_shape,
                 self._replay_buffer_capacity, 
                 self._batch_size * self._num_critic_updates,
-                load_path=self._buffer_load_path)
+                load_path=self._buffer_load_path,
+                img_aug_path=self._img_aug_path)
         else:    
             self._replay_buffer = AsyncSMReplayBuffer(
                 self._image_shape, 
@@ -65,7 +66,8 @@ class BaseAgent:
                 self._replay_buffer_capacity, 
                 self._batch_size * self._num_critic_updates,
                 self._obs_queue,
-                load_path=self._buffer_load_path)
+                load_path=self._buffer_load_path,
+                img_aug_path=self._img_aug_path)
 
 
     def _unpack(self, state):
