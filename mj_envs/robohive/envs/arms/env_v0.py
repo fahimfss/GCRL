@@ -139,9 +139,9 @@ def is_gdino_accurate(gt_pos, gdino_pos, dist, image_width, image_height):
     return distance < acceptable_dist
 
 class EnvV0(env_base_0.MujocoEnv):
-    DEFAULT_OBS_KEYS = ['qp_robot', 'qv_robot']
+    DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
     
-    DEFAULT_PROPRIO_KEYS = ['qp_robot', 'qv_robot']
+    DEFAULT_PROPRIO_KEYS = ['qp_robot', 'prev_action']
     
     BOX_THRESHOLD = 0.4
     TEXT_THRESHOLD = 0.25
@@ -192,6 +192,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gs = 0
         self.distance = 1.0
         self.TM = time.time()
+        self.prev_action = np.array([0] * 7)
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -274,6 +275,7 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['time'] = np.array([self.sim.data.time])
         obs_dict['qp_robot'] = sim.data.qpos[:7].copy()
         obs_dict['qv_robot'] = sim.data.qvel[:7].copy()
+        obs_dict['prev_action'] = self.prev_action
         obs_dict['xmat_pinch'] = mat2euler(np.reshape(self.sim.data.site_xmat[self.grasp_sid], (3, 3)))
         obs_dict['claw_ori_err'] = obs_dict['xmat_pinch'] - np.array([-np.pi, 0, -np.pi/2])
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
@@ -358,7 +360,7 @@ class EnvV0(env_base_0.MujocoEnv):
     
     def reset(self, reset_qpos=None, **kwargs): 
         # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
-        
+        self.prev_action = np.array([0] * 7)
         self.current_mask = None
         self.gdino_error = 0
         self.gdino_num_accurate = 0
@@ -519,6 +521,7 @@ class EnvV0(env_base_0.MujocoEnv):
         change control method here if needed 
         """
         self.save_state()
+        self.prev_action = a
  
         if self.single_touch >= 1000:
             print('hard-coded')

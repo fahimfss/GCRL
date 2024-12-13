@@ -67,6 +67,23 @@ class ReplayBuffer():
         if len(img_aug_path) > 0:
             self._aug_imgs = np.load(img_aug_path)
             self._zero_channel = np.zeros((self._batch_size, 90, 159, 1), dtype=np.uint8)
+            
+            filter_size = (90, 159, 12)
+            values = [0, 0.04, 0.08, 0.12, 0.16]
+
+            filters = []
+            for v in values:
+                f = np.zeros(filter_size)
+                if v != 0:
+                    f[..., [0, 1, 2, 4, 5, 6, 8, 9, 10]] = v
+                filters.append(f)
+
+            filters = np.stack(filters)
+            zero_filter = np.zeros((1, *filter_size))
+            self._final_filters_1 = np.tile(filters, (256 // 5, 1, 1, 1))
+            self._final_filters_1 = np.vstack([self._final_filters_1 , zero_filter])
+            
+            self._final_filters_0 = 1 - self._final_filters_1
 
         if init_buffers:
             self._init_buffers()
@@ -179,7 +196,7 @@ class ReplayBuffer():
             images = self._images[idxs_1]
             next_images = self._images[idxs_2]
             
-            if self._aug_imgs is not None and np.random.rand() > 0.1:
+            if self._aug_imgs is not None:
                 indices = np.random.choice(self._aug_imgs.shape[0], self._batch_size, replace=False)
                 sampled_images = self._aug_imgs[indices]
                 
@@ -192,8 +209,8 @@ class ReplayBuffer():
                 mask = mask.astype(np.float32)
 
                 # 4. Imprint the mask onto images and next_images
-                images = (images * 0.9) + (mask * 0.1)
-                next_images = (next_images * 0.9) + (mask * 0.1)
+                images = (images * self._final_filters_0) + (mask * self._final_filters_1)
+                next_images = (next_images * self._final_filters_0) + (mask * self._final_filters_1)
                 
                 images = images.astype(np.uint8)
                 next_images = next_images.astype(np.uint8)

@@ -245,12 +245,12 @@ def batched_augmentations(key, images, config=None):
     if config is None:
         config = {
             'contrast_lower': 0.8,
-            'contrast_upper': 1.2,
+            'contrast_upper': 1.3,
             
-            'brightness_delta': 0.1,
+            'brightness_delta': 0.2,
             
             'saturation_lower': 0.8,
-            'saturation_upper': 1.2,
+            'saturation_upper': 1.3,
             
             'blur_kernel_size': 3, 
             'blur_sigma_range': (0.1, 0.5)
