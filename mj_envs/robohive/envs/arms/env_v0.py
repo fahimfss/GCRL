@@ -100,6 +100,8 @@ class EnvV0(env_base_0.MujocoEnv):
                        frame_skip=frame_skip,
                        **kwargs)
         self.init_qpos[:] = self.sim.model.key_qpos[0].copy()
+        # self.observation_space['image'] = gym.spaces.Box(low=0, high=255, shape=(image_height, image_width, 4), dtype=np.uint8)
+        # self.observation_space['vector'] = gym.spaces.Box(obs_range[0]*np.ones(15), obs_range[1]*np.ones(15), dtype=np.float32)
 
 
     def get_obs_dict(self, sim):

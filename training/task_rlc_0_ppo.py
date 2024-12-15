@@ -1,13 +1,15 @@
-import gym
+# import gym
+import gymnasium as gym
+
 import os
-from gym import spaces
+from gymnasium import spaces
 from PIL import Image
 import cv2
 import torchvision.transforms as transforms
 import torch 
 import random
-import kornia.augmentation as KAug
-import kornia.enhance as KEnhance
+# import kornia.augmentation as KAug
+# import kornia.enhance as KEnhance
 import torch.nn as nn
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.monitor import Monitor
@@ -40,10 +42,11 @@ parser.add_argument('--task_name', default='baseline', type=str)
 
 parser.add_argument('--image_height', default=120, type=int)     # Mode: img, img_prop
 parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
-parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
+parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
 parser.add_argument('--mask_delay_type', default='none', type=str)
 parser.add_argument('--mask_delay_steps', default=1, type=int) 
-parser.add_argument('--logdir', default='/home/hany606/scratch/', type=str)
+parser.add_argument('--max_time_steps', default=200, type=int)
+parser.add_argument('--logdir', default='/home/hany606/scratch/rlc_ppo_results/', type=str)
 
 parser.add_argument('--augment', action='store_true', help='augment')
 
@@ -176,17 +179,15 @@ class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
             nn.ReLU(),
             nn.Flatten()  # Flatten the output for feature concatenation
         )
-
         # Vector processing network
         self.mlp = nn.Linear(observation_space.spaces['vector'].shape[0], 14)
         
-        print(observation_space.spaces.keys())
-
         # Calculate the total concatenated feature dimension
-        self._features_dim = 24974  # Adjust based on actual output dimensions of cnn and mlp
+        self._features_dim = 24974 #observation_space.spaces['image'].shape[0]**2 + 16  # Adjust based on actual output dimensions of cnn and mlp
 
     def forward(self, observations):
-        image = observations['image'].permute(0, 3, 1, 2)
+        image = observations['image']#.permute(0, 3, 1, 2) # already permuted
+        # self.cnn(BxCxHxW)
         image_features = self.cnn(image)
         vector_features = self.mlp(observations['vector'])
         concatenated_features = torch.cat([image_features, vector_features], dim=1)
@@ -199,6 +200,40 @@ class CustomMultiInputPolicy(ActorCriticPolicy):
                                                      features_extractor_kwargs={},
                                                      net_arch=[{'vf': [512, 512], 'pi': [512, 512]}])  # Adjust architecture if needed
 
+class WrapperReset(gym.Wrapper):
+    def __init__(self, env):
+        super(WrapperReset, self).__init__(env)
+        self.env = env
+        self.counter = 0
+
+    def reset(self, *args, **kwargs):
+        self.counter = 0
+        obs = self.env.reset(*args, **kwargs)
+        return obs, {}
+    
+    def step(self, *args, **kwargs):
+        self.counter += 1
+        return self.env.step(*args, **kwargs)
+
+class TimeLimitWrapper(gym.Wrapper):
+    def __init__(self, env, max_time_steps=200):
+        super(TimeLimitWrapper, self).__init__(env)
+        self.env = env
+        self.max_time_steps = max_time_steps
+        self.current_time_step = 0
+    
+    def reset(self, *args, **kwargs):
+        self.current_time_step = 0
+        return self.env.reset(*args, **kwargs)
+    
+    def step(self, *args, **kwargs):
+        self.current_time_step += 1
+        obs, reward, done, truncated, info = self.env.step(*args, **kwargs)
+        if self.current_time_step >= self.max_time_steps:
+            truncated = True
+        return obs, reward, done, truncated, info
+
+        
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
     """
     Linear learning rate schedule.
@@ -220,18 +255,19 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
 
 def make_env(env_name, idx, seed=0, eval_mode=False):
     def _init():
-        # env = gym.make(f'mj_envs.robohive.envs:{env_name}', eval_mode=eval_mode)
-        # env.seed(seed + idx)
-        from jsac.envs.rl_chemist.unified_env import Unified_Env
-        from jsac.helpers.utils import WrappedEnv
-        
-        env = Unified_Env(env_name, 
-                    args.image_history, 
-                    args.image_width, 
-                    args.image_height,
-                    mask_delay_type=args.mask_delay_type,
-                    mask_delay_steps=args.mask_delay_steps)
-        env = WrappedEnv(env, 200)
+        from collections import OrderedDict
+        # We are using a single frame
+        env_kwargs = OrderedDict(
+                    image_width=args.image_width, 
+                    image_height=args.image_height,
+                    # image_history=args.image_history,  # this is useless here as I am not using the UnifiedEnv class
+                    # mask_delay_type=args.mask_delay_type, # this is useless here 
+                    # mask_delay_steps=args.mask_delay_steps, # this is useless here 
+        )
+        env = gym.make(f'robohive.envs:{env_name}', eval_mode=eval_mode, **env_kwargs)
+        env.seed(seed + idx)
+        env = WrapperReset(env)
+        env = TimeLimitWrapper(env, max_time_steps=args.max_time_steps)
         return env
     return _init
 
@@ -254,10 +290,49 @@ def main():
     CR = linear_schedule(args.clip_range)
 
     time_now = time_now + str(args.seed)
-
+    log_path = os.path.join(args.logdir, env_name, time_now, 'policy_best_model')
+    tensorboard_log_path = os.path.join(args.logdir, env_name, time_now, 'tensorboard')
+    video_log_path = os.path.join(args.logdir, env_name, time_now, 'videos')
+    # wandb_logdir = os.path.join(args.logdir)
+    
     IS_WnB_enabled = True
+    loaded_model = time_now #'2024_09_25_13_42_113'
 
-    loaded_model = '2024_09_25_13_42_113'
+
+
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        print("Using GPU:", torch.cuda.get_device_name(0))
+    else:
+        device = torch.device("cpu")
+        print("Using CPU")
+
+    num_cpu = args.num_envs
+
+    env = DummyVecEnv([make_env(env_name, i, seed=args.seed) for i in range(num_cpu)])
+    env.render_mode = 'rgb_array'
+
+    envs = VecVideoRecorder(env, video_log_path, record_video_trigger=lambda x: x % 30000 == 0, video_length=250)
+    envs = VecMonitor(env)
+    envs = VecFrameStack(envs, n_stack = 3)
+
+    ## EVAL
+    eval_env = DummyVecEnv([make_env(env_name, i, seed=args.seed, eval_mode=True) for i in range(1)])
+    eval_env.render_mode = 'rgb_array'
+    eval_envs = VecFrameStack(eval_env, n_stack = 3)
+    
+    eval_callback = EvalCallback(eval_envs, best_model_save_path=log_path, log_path=log_path, eval_freq=2000, n_eval_episodes=20, deterministic=True, render=False)
+    
+    print('Begin training')
+    print(time_now)
+
+
+    # Create a model using the vectorized environment
+    #model = SAC("MultiInputPolicy", envs, buffer_size=1000, verbose=0)
+    model = PPO(CustomMultiInputPolicy, envs, ent_coef=ENTROPY, learning_rate=LR, clip_range=CR, n_steps = 1024, batch_size = 64, verbose=0, tensorboard_log=tensorboard_log_path)
+    #model = PPO.load(r"./Reach_Target_vel/policy_best_model/" + env_name + '/' + loaded_model + '/best_model', envs, verbose=1, tensorboard_log=f"runs/{time_now}")
+    
     try:
         import wandb
         from wandb.integration.sb3 import WandbCallback
@@ -275,6 +350,9 @@ def main():
             "CR": args.clip_range,
             "num_envs": args.num_envs,
             "loaded_model": loaded_model,
+            "log_path": log_path,
+            "tensorboard_log_path": tensorboard_log_path,
+            "video_log_path": video_log_path,
         }
         #config = {**config, **envs.rwd_keys_wt}
         run = wandb.init(project="RL-Chemist_Reach",
@@ -284,44 +362,16 @@ def main():
                         sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
                         monitor_gym=True,  # auto-upload the videos of agents playing the game
                         save_code=True,  # optional
+                        entity='hanyhamed606',
+                        # dir=wandb_logdir,
                         )
+        wandb.run.name = '-'.join([env_name, time_now, str(args.seed)])
+        # wandb.tensorboard.patch(root_logdir=tensorboard_log_path)
+
     except ImportError as e:
         IS_WnB_enabled = False
+        print(e)
         pass 
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print("Using GPU:", torch.cuda.get_device_name(0))
-    else:
-        device = torch.device("cpu")
-        print("Using CPU")
-
-    num_cpu = args.num_envs
-
-    env = DummyVecEnv([make_env(env_name, i, seed=args.seed) for i in range(num_cpu)])
-    env.render_mode = 'rgb_array'
-    envs = VecVideoRecorder(env, "videos/" + env_name + '/training_log' ,
-        record_video_trigger=lambda x: x % 30000 == 0, video_length=250)
-    envs = VecMonitor(env)
-    envs = VecFrameStack(envs, n_stack = 3)
-
-    ## EVAL
-    eval_env = DummyVecEnv([make_env(env_name, i, seed=args.seed, eval_mode=True) for i in range(1)])
-    eval_env.render_mode = 'rgb_array'
-    eval_envs = VecFrameStack(eval_env, n_stack = 3)
-    
-    log_path = os.path.join(args.logdir, 'rlc_ppo/Reach_Target_vel/policy_best_model/' + env_name + '/' + time_now + '/')
-    eval_callback = EvalCallback(eval_envs, best_model_save_path=log_path, log_path=log_path, eval_freq=2000, n_eval_episodes=20, deterministic=True, render=False)
-    
-    print('Begin training')
-    print(time_now)
-
-
-    # Create a model using the vectorized environment
-    #model = SAC("MultiInputPolicy", envs, buffer_size=1000, verbose=0)
-    model = PPO(CustomMultiInputPolicy, envs, ent_coef=ENTROPY, learning_rate=LR, clip_range=CR, n_steps = 1024, batch_size = 64, verbose=0, tensorboard_log=f"runs/{time_now}")
-    #model = PPO.load(r"./Reach_Target_vel/policy_best_model/" + env_name + '/' + loaded_model + '/best_model', envs, verbose=1, tensorboard_log=f"runs/{time_now}")
-
 
     callbacks = []
     if args.augment:
@@ -330,7 +380,6 @@ def main():
     
     callback = CallbackList(callbacks)
     
-
     model.learn(total_timesteps=training_steps, callback=callback)# , tb_log_name=env_name + "_" + time_now)
 
     if IS_WnB_enabled:

@@ -26,8 +26,6 @@ register(
     }
 )
 
-
-# Reach to fixed target
 register(
     id='FrankaEnv-v0',
     entry_point='robohive.envs.arms.env_v0:EnvV0',
@@ -36,6 +34,8 @@ register(
         'robot_site_name': "end_effector",
     }
 )
+
+# Reach to fixed target
 
 # # reach_base_v1 is env with five object but distance based reward
 # # reach_base_v2 is the env with pick & place
