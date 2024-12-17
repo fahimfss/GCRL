@@ -9,7 +9,7 @@ import multiprocessing as mp
 from jsac.helpers.logger import Logger
 from jsac.helpers.utils import WrappedEnv
 from jsac.algo.agent import sample_actions
-from jsac.envs.rl_chemist.ur10 import UR10_ENV
+from jsac.envs.rl_chemist.env import RLC_Env
 from jsac.algo.initializers import init_inference_actor 
 from jsac.envs.dmc_visual_env.dmc_env import DMCVisualEnv
 from jsac.envs.mujoco_visual_env.mujoco_visual_env import MujocoVisualEnv
@@ -52,7 +52,7 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
         step_time = None
         if args['step_time'] > 0:
             step_time = args['step_time']
-        env = UR10_ENV(args['env_name'], 
+        env = RLC_Env(args['env_name'], 
                           args['image_history'], 
                           args['image_width'], 
                           args['image_height'],  

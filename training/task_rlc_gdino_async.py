@@ -15,7 +15,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 from jsac.helpers.logger import Logger
 from jsac.helpers.eval import start_eval_process
-from jsac.envs.rl_chemist.ur10 import UR10_ENV
+from jsac.envs.rl_chemist.env import RLC_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
 
@@ -40,8 +40,9 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gdino_async', type=str)
+    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
+    # parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
+    parser.add_argument('--task_name', default='gdino_async_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
@@ -170,7 +171,7 @@ def main(seed=-1, env_name=None):
     step_time = None
     if args.step_time > 0:
         step_time = args.step_time
-    env = UR10_ENV(args.env_name, 
+    env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
@@ -216,7 +217,7 @@ def main(seed=-1, env_name=None):
 
     update_paused = True
     time.sleep(30)
-    state = env.reset(create_vid=False)
+    state = env.reset(create_vid=True)
     
     first_step = True
 

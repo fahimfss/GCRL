@@ -296,7 +296,41 @@ class WrappedEnv(Env):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{attr}'")
 
 
+def render_interactive(env):
+    ## IMPORTS FOR INTERACTIVE RENDERING
+    import mujoco
+    import cv2
+    # env = Franka_Env(env_name="FrankaEnv-v0",render_interactive=True) # replace model path accordingly
+    width, height = 640, 480
 
-            
-            
-            
+    ## END EFFECTOR CAMERA VIEW
+    camera_name = "end_effector_cam"
+    cam_id = mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+    camera = mujoco.MjvCamera()
+    camera.type = mujoco.mjtCamera.mjCAMERA_FIXED
+    camera.fixedcamid = cam_id
+    # Set up an offscreen rendering context specifically for capturing images
+    offscreen_context = mujoco.MjrContext(env.model, 0)
+    viewport = mujoco.MjrRect(0, 0, width, height)
+    scene = mujoco.MjvScene(env.model, maxgeom=1000)
+    print(env.model.jnt_range)
+    # print(env.model.njnt)
+    while env.viewer.is_running():
+        mujoco.mj_step(env.model, env.data, 20)
+        env.sync_view()
+         # Update the scene from the specified camera for rendering
+        mujoco.mjv_updateScene(env.model, env.data, mujoco.MjvOption(), None, camera, mujoco.mjtCatBit.mjCAT_ALL, scene)
+        mujoco.mjr_render(viewport, scene, offscreen_context)
+
+        # Retrieve the image from the offscreen buffer
+        rgb_image = np.zeros((height, width, 3), dtype=np.uint8)
+        mujoco.mjr_readPixels(rgb_image, None, viewport, offscreen_context)
+
+        # Flip the image vertically as MuJoCo renders it upside-down
+        rgb_image = np.flipud(rgb_image)
+        bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+        # Display or process the captured image
+        cv2.imshow("End Effector Camera View", bgr_image)
+        cv2.waitKey(1)
+
+    cv2.destroyAllWindows()

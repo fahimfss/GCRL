@@ -4,9 +4,11 @@ import numpy as np
 import gymnasium as gym
 from collections import deque
 from gymnasium.spaces import Box
+import mujoco
 
+from jsac.helpers.utils import render_interactive
 
-class UR10_ENV(gym.Wrapper):
+class RLC_Env(gym.Wrapper):
     def __init__(self, 
                  env_name,  
                  image_history=2, 
@@ -18,7 +20,8 @@ class UR10_ENV(gym.Wrapper):
                  mask_delay_type="none",
                  mask_delay_steps=2,
                  step_time=None,
-                 video_path="."):
+                 video_path=".",
+                 render_interactive=False):
 
         if target_obj_num >= 0:
             super().__init__(gym.make(f'robohive.envs:{env_name}', 
@@ -54,8 +57,8 @@ class UR10_ENV(gym.Wrapper):
         self._latest_image = None
         self._reset = False
         self._create_video = False
-        
-
+        if render_interactive:
+            self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
     @property
     def image_space(self):
         return Box(low=0, high=255, shape=self._image_shape, dtype=np.uint8)
@@ -184,9 +187,28 @@ class UR10_ENV(gym.Wrapper):
         clip.write_videofile(f'{self._video_path}/{vid_name}', codec='libx264')
         
         del self._video_buffer
+    
+    def sync_view(self):
+        '''
+            This function keeps rendering the interactive view
+        '''
+        if self.viewer and self.viewer.is_running():
+            with self.viewer.lock():
+                self.viewer.sync()
         
     def close(self):
         super().close()
+
         del self
 
 
+### TEST ENVIRONMENT ###
+
+
+if __name__=="__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
+    args = parser.parse_args()
+    env = RLC_Env(env_name=args.env_name, render_interactive=True) # replace model path accordingly
+    render_interactive(env)

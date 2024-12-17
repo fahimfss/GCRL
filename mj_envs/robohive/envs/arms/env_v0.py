@@ -166,8 +166,7 @@ class EnvV0(env_base_0.MujocoEnv):
                proprio_keys=DEFAULT_PROPRIO_KEYS,
                **kwargs,
         ):
-        np.set_printoptions(precision=4,suppress=True)
-        
+
         # ids
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
         self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
@@ -192,7 +191,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gs = 0
         self.distance = 1.0
         self.TM = time.time()
-        self.prev_action = np.array([0] * 7)
+        self.prev_action = np.array([0] * self.sim.model.nu)
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -273,8 +272,8 @@ class EnvV0(env_base_0.MujocoEnv):
     def get_obs_dict(self, sim):
         obs_dict = {}
         obs_dict['time'] = np.array([self.sim.data.time])
-        obs_dict['qp_robot'] = sim.data.qpos[:7].copy()
-        obs_dict['qv_robot'] = sim.data.qvel[:7].copy()
+        obs_dict['qp_robot'] = sim.data.qpos[:sim.model.nu].copy()
+        obs_dict['qv_robot'] = sim.data.qvel[:sim.model.nu].copy()
         obs_dict['prev_action'] = self.prev_action
         obs_dict['xmat_pinch'] = mat2euler(np.reshape(self.sim.data.site_xmat[self.grasp_sid], (3, 3)))
         obs_dict['claw_ori_err'] = obs_dict['xmat_pinch'] - np.array([-np.pi, 0, -np.pi/2])
@@ -360,7 +359,7 @@ class EnvV0(env_base_0.MujocoEnv):
     
     def reset(self, reset_qpos=None, **kwargs): 
         # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
-        self.prev_action = np.array([0] * 7)
+        self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
         self.gdino_error = 0
         self.gdino_num_accurate = 0
@@ -483,16 +482,29 @@ class EnvV0(env_base_0.MujocoEnv):
     #setting a boundary of virtual box such that the arm will not accidentally
     def check_collision(self):
         """ Check if any joint is out of the defined boundary """
-        x_min, x_max = -1.5, 1.5
-        y_min, y_max = -1.7, 1.5
-        z_min, z_max = 0.85, 2.23
-        for i in range(1, 13):
-            joint_frame_id = self.sim.model.jnt_bodyid[i]
-            joint_pos = self.sim.data.xpos[joint_frame_id]
-            if not (x_min <= joint_pos[0] <= x_max and 
-                    y_min <= joint_pos[1] <= y_max and 
-                    z_min <= joint_pos[2] <= z_max):
-                return True
+        if "ur10e" in self.sim.model.name: ## BOUNDARIES FOR UR10eEnv-v0
+            x_min, x_max = -1.5, 1.5
+            y_min, y_max = -1.7, 1.5
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 13):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+        elif "franka" in self.sim.model.name:
+            x_min, x_max = -3, 3
+            y_min, y_max = -3, 3
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 9):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+
         return False
     
     def save_state(self):
@@ -525,7 +537,7 @@ class EnvV0(env_base_0.MujocoEnv):
  
         if self.single_touch >= 1000:
             print('hard-coded')
-            self.fixed_positions = self.sim.data.qpos[:7].copy()
+            self.fixed_positions = self.sim.data.qpos[:self.sim.model.nu].copy()
             self.fixed_positions[-1] = 1
             a[-1] = 1
 
@@ -537,7 +549,7 @@ class EnvV0(env_base_0.MujocoEnv):
             a = np.clip(a, self.action_space.low, self.action_space.high)
             self.fixed_positions = None
             self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = self.sim.data.qpos[:7].copy(),
+                                        last_qpos = self.sim.data.qpos[:self.sim.model.nu].copy(),
                                         dt = self.dt,
                                         render_cbk=self.mj_render if self.mujoco_render_frames else None)
 

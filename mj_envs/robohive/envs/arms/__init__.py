@@ -26,6 +26,17 @@ register(
     }
 )
 
+# Reach to fixed target
+register(
+    id='FrankaEnv-v0',
+    entry_point='robohive.envs.arms.env_v0:EnvV0',
+    kwargs={
+        'model_path': curr_dir+'/franka/scene_eight.xml',
+        'robot_site_name': "end_effector",
+    }
+)
+
+
 
 # # Reach to fixed target
 # register(
