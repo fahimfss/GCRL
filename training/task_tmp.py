@@ -7,6 +7,8 @@ import torch.nn as nn
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3 import PPO, SAC
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecMonitor, VecFrameStack
+from stable_baselines3.common.vec_env import DummyVecEnv, VecVideoRecorder
 
 
 class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
@@ -42,32 +44,81 @@ class CustomMultiInputPolicy(ActorCriticPolicy):
                                                      features_extractor_class=CustomDictFeaturesExtractor,
                                                      features_extractor_kwargs={},
                                                      net_arch=[{'vf': [512, 512], 'pi': [512, 512]}])  # Adjust architecture if needed
-
 class WrapperReset(gym.Wrapper):
     def __init__(self, env):
         super(WrapperReset, self).__init__(env)
         self.env = env
+        self.counter = 0
 
     def reset(self, *args, **kwargs):
+        self.counter = 0
         obs = self.env.reset(*args, **kwargs)
         return obs, {}
+    
+    def step(self, *args, **kwargs):
+        self.counter += 1
+        return self.env.step(*args, **kwargs)
 
-env_name = 'UR10eEnv-v0' #'FrankaEnv-v0'
+class TimeLimitWrapper(gym.Wrapper):
+    def __init__(self, env, max_time_steps=200):
+        super(TimeLimitWrapper, self).__init__(env)
+        self.env = env
+        self.max_time_steps = max_time_steps
+        self.current_time_step = 0
+    
+    def reset(self, *args, **kwargs):
+        self.current_time_step = 0
+        return self.env.reset(*args, **kwargs)
+    
+    def step(self, *args, **kwargs):
+        self.current_time_step += 1
+        obs, reward, done, truncated, info = self.env.step(*args, **kwargs)
+        if self.current_time_step >= self.max_time_steps:
+            truncated = True
+        return obs, reward, done, truncated, info
 
-env = gym.make(f'robohive.envs:{env_name}', image_width = 212,
-               image_height= 120, image_history=3)#, render_mode="rgb_array")
-env = WrapperReset(env)
+
+env_name = 'FrankaEnv-v0'
+
+def make_env(env_name, idx, seed=0, eval_mode=False):
+    def _init():
+        from collections import OrderedDict
+        # We are using a single frame
+        env_kwargs = OrderedDict(
+                    image_width=212, 
+                    image_height=120,
+                    # image_history=args.image_history,  # this is useless here as I am not using the UnifiedEnv class
+                    # mask_delay_type=args.mask_delay_type, # this is useless here 
+                    # mask_delay_steps=args.mask_delay_steps, # this is useless here 
+        )
+        env = gym.make(f'robohive.envs:{env_name}', eval_mode=eval_mode, **env_kwargs)
+        env.seed(seed + idx)
+        env = WrapperReset(env)
+        env = TimeLimitWrapper(env, max_time_steps=200)
+        return env
+    return _init
+
+def cb(x):
+    print(x)
+    return x % 250
+
+
+env = DummyVecEnv([make_env(env_name, i, seed=0) for i in range(2)])
+env.render_mode = 'rgb_array'
+
+envs = VecVideoRecorder(env, "/home/hany606/repos/RLC/training/tmp", record_video_trigger=cb, video_length=250)
+envs = VecMonitor(env)
+envs = VecFrameStack(envs, n_stack = 3)
 
 print(env.observation_space)
 
 # model = A2C("MultiInputPolicy", env, verbose=1)
-model = PPO(CustomMultiInputPolicy, env, n_steps = 1024, batch_size = 64, verbose=0,)
+model = PPO(CustomMultiInputPolicy, envs, n_steps = 1024, batch_size = 64, verbose=0,)
 
 # model.learn(total_timesteps=10_000)
 
 vec_env = model.get_env()
-obs = vec_env.reset()
-print(obs.keys())
+obs, info = vec_env.reset()
 for i in range(1000):
-    action, _state = model.predict(obs, deterministic=True)
+    action = vec_env.action_space.sample()
     obs, reward, done, info = vec_env.step(action)

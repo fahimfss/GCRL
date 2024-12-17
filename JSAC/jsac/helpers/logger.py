@@ -145,7 +145,9 @@ class Logger(object):
                  wandb_run_name='', 
                  wandb_resume=False, 
                  config='rl',
-                 eval=False):
+                 eval=False,
+                 wandb_entity_name=None,
+                 wandb_group=None):
         
         self._log_queue = Queue()
         self._log_dir = log_dir
@@ -154,8 +156,10 @@ class Logger(object):
         self._use_tb = use_tb
         self._use_wandb = use_wandb
         self._wandb_project_name = wandb_project_name
+        self._wandb_entity_name = wandb_entity_name
         self._wandb_run_name = wandb_run_name
         self._wandb_resume = wandb_resume
+        self._wandb_group = wandb_group
         self._config = config
         self._eval = eval
 
@@ -198,7 +202,9 @@ class Logger(object):
                 name=self._wandb_run_name,
                 id=id,
                 config=self._args,
-                resume=self._wandb_resume
+                resume=self._wandb_resume,
+                entity=self._wandb_entity_name,
+                group=self._wandb_group,
             )
         else:
             self._use_wandb = False

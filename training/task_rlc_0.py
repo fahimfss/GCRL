@@ -42,18 +42,23 @@ def parse_args():
     
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
     parser.add_argument('--task_name', default='baseline', type=str)
-    parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
-    parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
+    # parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
+    # parser.add_argument('--image_width', default=159, type=int)     # Mode: img, img_prop     
+    parser.add_argument('--image_height', default=120, type=int)     # Mode: img, img_prop
+    parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-    parser.add_argument('--mask_delay_type', default='n_step', type=str)
-    parser.add_argument('--mask_delay_steps', default=2, type=int) 
+    parser.add_argument('--mask_delay_type', default='none', type=str)
+    parser.add_argument('--mask_delay_steps', default=1, type=int) 
+    # parser.add_argument('--mask_delay_type', default='n_step', type=str)
+    # parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=250_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=250_000, type=int)
+    # parser.add_argument('--env_steps', default=250_000, type=int)
+    parser.add_argument('--env_steps', default=3500000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -98,7 +103,10 @@ def parse_args():
 
     parser.add_argument('--buffer_save_path', default='', type=str) # ./buffers/
     parser.add_argument('--buffer_load_path', default='', type=str) # ./buffers/
-
+    
+    parser.add_argument('--wandb_entity_name', default='hanyhamed606', type=str)
+    parser.add_argument('--wandb_group', default='jsac', type=str)
+    
     args = parser.parse_args()
     return args
 
@@ -159,7 +167,8 @@ def main(seed=-1, env_name=None):
         wandb_run_name=f'seed_{args.seed}'
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb, wandb_project_name, 
-                   wandb_run_name, args.start_step > 1)
+                   wandb_run_name, args.start_step > 1,
+                   wandb_entity_name=args.wandb_entity_name, wandb_group=args.wandb_group)
     else:
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb)

@@ -313,7 +313,7 @@ def main():
     env = DummyVecEnv([make_env(env_name, i, seed=args.seed) for i in range(num_cpu)])
     env.render_mode = 'rgb_array'
 
-    envs = VecVideoRecorder(env, video_log_path, record_video_trigger=lambda x: x % 30000 == 0, video_length=250)
+    envs = VecVideoRecorder(env, video_log_path, record_video_trigger=lambda x: x % 2000 == 0, video_length=250)
     envs = VecMonitor(env)
     envs = VecFrameStack(envs, n_stack = 3)
 
