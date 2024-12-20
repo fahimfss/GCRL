@@ -89,7 +89,8 @@ class RLC_Env(gym.Wrapper):
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
-        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
+        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
+        # cv2.waitKey(1)
         # print(info['prompt'])
         
         if self._create_video: 
@@ -127,7 +128,8 @@ class RLC_Env(gym.Wrapper):
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
-        # cv2.imwrite(img_name, np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1)) 
+        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1)) 
+        # cv2.waitKey(1)
         
         if create_vid: 
             print("Video will be created. ")
@@ -145,6 +147,7 @@ class RLC_Env(gym.Wrapper):
         return (self._latest_image, prop)
     
     def add_frame_to_video_buffer(self, text, new_img, msk): 
+        new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
         frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], np.stack(msk, axis=-1)), axis=1).copy()
         
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -166,27 +169,65 @@ class RLC_Env(gym.Wrapper):
         cv2.putText(banner, text, (center_x, center_y), font, font_scale, font_color, thickness)
         
         combined_image = np.vstack((frame, banner))
+        cv2.imshow("w1", combined_image)
+        cv2.waitKey(1)
         self._video_buffer.append(combined_image) 
 
 
-    def _save_video(self):
-        import os
-        from moviepy.editor import ImageSequenceClip
+    # def _save_video(self):
+    #     import os
+    #     from moviepy.editor import ImageSequenceClip
         
+    #     print("Saving video...")
+        
+    #     num_files = len(os.listdir(self._video_path))
+    #     vid_name = f'{self._env_name}_{num_files+1}.mp4'
+    #     print("vid_name: ", vid_name)
+        
+    #     last = self._video_buffer[-1]
+    #     for i in range(5):
+    #         self._video_buffer.append(last)
+        
+    #     try:
+    #         clip = ImageSequenceClip(self._video_buffer, fps=30)
+    #         output_path = os.path.join(self._video_path, vid_name)
+    #         clip.write_videofile(output_path, codec='libx264')
+    #     except Exception as e:
+    #         print(f"Error saving video: {e}")
+    #     finally:
+    #         self._video_buffer = []
+    
+    def _save_video(self): 
         print("Saving video...")
-        
+ 
         num_files = len(os.listdir(self._video_path))
-        vid_name = f'{self._env_name}_{num_files+1}.mp4'
+        vid_name = f'{self._env_name}_{num_files + 1}.mp4'
         print("vid_name: ", vid_name)
-        
-        last = self._video_buffer[-1]
-        for i in range(5):
-            self._video_buffer.append(last)
-        
-        clip = ImageSequenceClip(self._video_buffer , fps=30)
-        clip.write_videofile(f'{self._video_path}/{vid_name}', codec='libx264')
-        
-        del self._video_buffer
+ 
+        last_frame = self._video_buffer[-1]
+        for _ in range(5):
+            self._video_buffer.append(last_frame)
+ 
+        if not self._video_buffer:
+            print("Error: Video buffer is empty.")
+            return
+ 
+        height, width, channels = self._video_buffer[0].shape
+        output_path = os.path.join(self._video_path, vid_name)
+ 
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
+        fps = 30 
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        try: 
+            for frame in self._video_buffer: 
+                out.write(frame)
+            print(f"Video saved at: {output_path}")
+        except Exception as e:
+            print(f"Error saving video: {e}")
+        finally:
+            out.release()  # Release the video writer
+            self._video_buffer = []
     
     def sync_view(self):
         '''
