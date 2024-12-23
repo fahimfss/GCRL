@@ -710,9 +710,12 @@ class Robot():
         
         control = (self.robot_vel_bound[:self.sim.model.nu, 1] + self.robot_vel_bound[:self.sim.model.nu, 0])/2.0 + \
                     ctrl_with_noise * (self.robot_vel_bound[:self.sim.model.nu, 1] - self.robot_vel_bound[:self.sim.model.nu, 0])/2.0
+                    
         control = last_qpos[:self.sim.model.nu] + control * dt
         
         ctrl_feasible = np.clip(control, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1])
+        
+        # print('mj_envs/robohive/robot/robot1.py ctrl_feasible: ', ctrl_desired, ctrl_feasible)
         
         self.sim.data.ctrl[:] = ctrl_feasible
         
@@ -772,7 +775,7 @@ class Robot():
         self.robot_vel_noise_amp = np.zeros(self.sim.model.nu, dtype=float)
 
         #print(self.robot_pos_bound)
-        for i in range(7):
+        for i in range(self.sim.model.nu):
             self.robot_pos_bound[i] = read_config_from_node(
                 root, "qpos" + str(i), "pos_bound", float
             )
@@ -785,6 +788,7 @@ class Robot():
             self.robot_vel_noise_amp[i] = read_config_from_node(
                 root, "qpos" + str(i), "vel_noise_amp", float
             )[0]
+            
 
     # Reset the robot
     def reset(self,

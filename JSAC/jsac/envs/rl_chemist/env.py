@@ -169,8 +169,8 @@ class RLC_Env(gym.Wrapper):
         cv2.putText(banner, text, (center_x, center_y), font, font_scale, font_color, thickness)
         
         combined_image = np.vstack((frame, banner))
-        cv2.imshow("w1", combined_image)
-        cv2.waitKey(1)
+        # cv2.imshow("w1", combined_image)
+        # cv2.waitKey(1)
         self._video_buffer.append(combined_image) 
 
 
