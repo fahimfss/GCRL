@@ -17,8 +17,8 @@ export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export WANDB_DIR=/home/hany606/scratch/rlc_ppo_results/
+export WANDB_DIR=/home/hany606/scratch/rlc_ppo_unifiedEnvresults/
 export PYTHONPATH=$PYTHONPATH:/home/hany606/repos/RLC/mj_envs
 export WANDB_MODE=offline
 
-python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo_sb3 --logdir=/home/hany606/scratch/rlc_ppo_results/ --seed=$SLURM_ARRAY_TASK_ID
+python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo_sb3_unifiedEnv_n_step --logdir=/home/hany606/scratch/rlc_ppo_unifiedEnvresults/ --seed=$SLURM_ARRAY_TASK_ID

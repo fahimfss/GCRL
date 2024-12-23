@@ -100,13 +100,13 @@ class Unified_Env(gym.Wrapper):
  
         return (self._latest_image, prop), reward, done, info 
 
-    def reset(self, create_vid=False):
+    def reset(self, create_vid=False, seed=0):
         if self._create_video and len(self._video_buffer) > 0: 
             self._save_video()
             self._create_video = False
             self._video_buffer = []
         
-        self.env.reset() 
+        self.env.reset(seed=seed) 
         for _ in range(self._mask_delay_steps + 1):
             ob, _, _, _, _ = self.env.step(np.zeros(self.action_space.shape))
             

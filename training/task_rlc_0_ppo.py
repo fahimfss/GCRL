@@ -42,10 +42,15 @@ parser.add_argument('--task_name', default='baseline', type=str)
 
 parser.add_argument('--image_height', default=120, type=int)     # Mode: img, img_prop
 parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
-parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-parser.add_argument('--mask_delay_type', default='none', type=str)
-parser.add_argument('--mask_delay_steps', default=1, type=int) 
+# parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
+parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
+# parser.add_argument('--mask_delay_type', default='none', type=str)
+# parser.add_argument('--mask_delay_steps', default=1, type=int) 
+parser.add_argument('--mask_delay_type', default='n_step', type=str)
+parser.add_argument('--mask_delay_steps', default=2, type=int)
 parser.add_argument('--max_time_steps', default=200, type=int)
+
+
 parser.add_argument('--logdir', default='/home/hany606/scratch/rlc_ppo_results/', type=str)
 
 parser.add_argument('--augment', action='store_true', help='augment')
@@ -200,6 +205,28 @@ class CustomMultiInputPolicy(ActorCriticPolicy):
                                                      features_extractor_kwargs={},
                                                      net_arch=[{'vf': [512, 512], 'pi': [512, 512]}])  # Adjust architecture if needed
 
+
+class WrapperJSAC(gym.Wrapper):
+    def __init__(self, env):
+        super(WrapperJSAC, self).__init__(env)
+        self.env = env
+        self.counter = 0
+        self.observation_space = gym.spaces.Dict({
+            'image': env.image_space,
+            'vector': env.proprioception_space,
+        })
+        
+
+    def reset(self, *args, **kwargs):
+        self.counter = 0
+        obs = self.env.reset(*args, **kwargs)
+        return {'image': obs[0], 'vector': obs[1]}
+    
+    def step(self, *args, **kwargs):
+        self.counter += 1
+        obs, r, done, info = self.env.step(*args, **kwargs)
+        return {'image': obs[0], 'vector': obs[1]}, r, done, False, info
+
 class WrapperReset(gym.Wrapper):
     def __init__(self, env):
         super(WrapperReset, self).__init__(env)
@@ -269,7 +296,22 @@ def make_env(env_name, idx, seed=0, eval_mode=False):
         env = WrapperReset(env)
         env = TimeLimitWrapper(env, max_time_steps=args.max_time_steps)
         return env
-    return _init
+    # return _init
+    def _init_jsac():
+        from jsac.envs.rl_chemist.unified_env import Unified_Env
+        # We are using a single frame
+        env = Unified_Env(args.env_name, 
+                   args.image_history, 
+                   args.image_width, 
+                   args.image_height,
+                   mask_delay_type=args.mask_delay_type,
+                   mask_delay_steps=args.mask_delay_steps)
+        env = WrapperJSAC(env)
+        env = WrapperReset(env)
+        env = TimeLimitWrapper(env, max_time_steps=args.max_time_steps)
+        return env
+    return _init_jsac
+
 
 def main():
     if args.augment:
