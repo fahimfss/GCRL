@@ -7,7 +7,7 @@ License :: Under Apache License, Version 2.0 (the "License"); you may not use th
 
 import gymnasium as gym
 import numpy as np
-import os
+import mujoco
 import time as timer
 
 from robohive.envs.obs_vec_dict import ObsVecDict
@@ -59,6 +59,15 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         self.sim.forward()
         self.sim_obsd.forward()
         ObsVecDict.__init__(self)
+
+        ## MODEL and DATA FOR INTERACTIVE RENDERING ONLY ##
+                
+        self.model = mujoco.MjModel.from_xml_path(model_path)
+        self.data = mujoco.MjData(self.model)
+        # load model key before hand
+        default_kf = self.model.keyframe("default")
+        self.data.qpos = default_kf.qpos.copy()
+        self.data.ctrl = default_kf.ctrl.copy()
 
 
     def _setup(self,

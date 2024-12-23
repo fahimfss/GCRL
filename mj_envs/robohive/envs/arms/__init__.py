@@ -26,6 +26,7 @@ register(
     }
 )
 
+# Reach to fixed target
 register(
     id='FrankaEnv-v0',
     entry_point='robohive.envs.arms.env_v0:EnvV0',

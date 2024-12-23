@@ -66,24 +66,19 @@ class ReplayBuffer():
         self._aug_imgs = None
         if len(img_aug_path) > 0:
             self._aug_imgs = np.load(img_aug_path)
-            self._zero_channel = np.zeros((self._batch_size, 90, 159, 1), dtype=np.uint8)
+            self._total_aug_imgs = self._aug_imgs.shape[0]
+            self._aug_img_index = 0
+            aug_intensity = [0.0, 0.05, 0.1, 0.15, 0.2]
+            shape = (90, 159, 12)
+            self._aug_masks = []
+            active_channels = [0, 1, 2, 4, 5, 6, 8, 9, 10] 
             
-            filter_size = (90, 159, 12)
-            values = [0, 0.04, 0.08, 0.12, 0.16]
-
-            filters = []
-            for v in values:
-                f = np.zeros(filter_size)
-                if v != 0:
-                    f[..., [0, 1, 2, 4, 5, 6, 8, 9, 10]] = v
-                filters.append(f)
-
-            filters = np.stack(filters)
-            zero_filter = np.zeros((1, *filter_size))
-            self._final_filters_1 = np.tile(filters, (256 // 5, 1, 1, 1))
-            self._final_filters_1 = np.vstack([self._final_filters_1 , zero_filter])
-            
-            self._final_filters_0 = 1 - self._final_filters_1
+            for intensity in aug_intensity:
+                mask = np.zeros(shape, dtype=np.float32)  
+                mask[..., active_channels] = intensity
+                alt_mask = 1 - mask
+                self._aug_masks .append((alt_mask, mask))
+                            
 
         if init_buffers:
             self._init_buffers()
@@ -166,9 +161,27 @@ class ReplayBuffer():
             mask,
             first_step):
         if not self._ignore_image:
+            if self._aug_imgs is not None:
+                aug_img = self._aug_imgs[self._aug_img_index]
+                img_intensity, aug_intensity = self._aug_masks[self._aug_img_index % len(self._aug_masks)]
+                self._aug_img_index = (self._aug_img_index + 1) % self._total_aug_imgs
+                
+                h, w, c = image.shape
+                history = c//4
+            
+                aug_img = np.concatenate((aug_img, np.zeros((h, w, 1), dtype=np.uint8)), axis=-1) 
+                aug_img = np.concatenate([aug_img] * history, axis=-1).astype(np.float32) * aug_intensity
+                
+                image = image.astype(np.float32) * img_intensity + aug_img
+                next_image = next_image.astype(np.float32) * img_intensity + aug_img
+                
+                image = image.astype(np.uint8)
+                next_image = next_image.astype(np.uint8) 
+                
             idx1, idx2 = self._add_image(image, next_image, first_step)
             self._images_idxs[self._idx] = idx1
             self._next_images_idxs[self._idx] = idx2
+            
             
         if not self._ignore_propri:
             self._propris[self._idx] = propri
@@ -195,25 +208,6 @@ class ReplayBuffer():
             idxs_2 = self._next_images_idxs[idxs]
             images = self._images[idxs_1]
             next_images = self._images[idxs_2]
-            
-            if self._aug_imgs is not None:
-                indices = np.random.choice(self._aug_imgs.shape[0], self._batch_size, replace=False)
-                sampled_images = self._aug_imgs[indices]
-                
-                sampled_images_4ch = np.concatenate([sampled_images, self._zero_channel], axis=-1) # shape: (256, 90, 159, 4)
-                mask = np.concatenate([sampled_images_4ch, sampled_images_4ch, sampled_images_4ch], axis=-1) # shape: (256, 90, 159, 12)
-
-                # Convert images and mask to float if needed for arithmetic
-                images = images.astype(np.float32)
-                next_images = next_images.astype(np.float32)
-                mask = mask.astype(np.float32)
-
-                # 4. Imprint the mask onto images and next_images
-                images = (images * self._final_filters_0) + (mask * self._final_filters_1)
-                next_images = (next_images * self._final_filters_0) + (mask * self._final_filters_1)
-                
-                images = images.astype(np.uint8)
-                next_images = next_images.astype(np.uint8)
 
         if self._ignore_propri:
             propris = None
