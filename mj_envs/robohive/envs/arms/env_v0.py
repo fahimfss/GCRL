@@ -201,20 +201,36 @@ class EnvV0(env_base_0.MujocoEnv):
         
         if reward_mode == "distance":
             weighted_reward_keys = {
-                "distance": -1.0, 
-                "contact": 0.,
+                'distance': -1.0, 
+                'contact': 0.,
                 'penalty': 0.1,
                 'mask_size': 0.,
-                "done": 5.,
+                'done': 5.,
             }
-        else:
+        # TODO:
+        elif reward_mode == "sparse":
+            raise NotImplementedError("self.mask_type == object_image is not implemented")
+        #     weighted_reward_keys = {
+        #         'distance': 0., 
+        #         'contact': 1.,
+        #         'penalty': 0.,
+        #         'mask_size': 0.,
+        #         # 'sparse': 0,
+        #         # 'solved': 10,
+        #         'done': 100.,
+        #         # 'done': 100,
+        #     }
+        # else:
+        elif reward_mode == "mask_size":
             weighted_reward_keys = {
-                "distance": 0., 
-                "contact": 0.,
+                'distance': 0., 
+                'contact': 0.,
                 'penalty': 1.,
                 'mask_size': 0.9,
-                "done": 5.,
+                'done': 5.,
             }
+        else:
+            raise NotImplementedError(f"reward_mode == {reward_mode} is not implemented")
             
         if self.mask_type == "gdino_sync":
             # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
@@ -312,6 +328,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
+        # pix_perc = np.array([self.mask_size*100 - 2.4234])/10
 
         if contact == 1:
             self.single_touch += 1
@@ -320,15 +337,17 @@ class EnvV0(env_base_0.MujocoEnv):
         elif contact == 2:
             self.single_touch += 1
             print('Second touch!') 
-             
+        
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
             ('penalty', np.array([-1])),  
             ('mask_size',  mask_size_reward),
+            # ('sparse', pix_perc),
+            ('solved',  np.array([self.single_touch]) >= 20 and contact == 2),
             ('done', contact == 2),  
         )) 
-         
+        
         if self.env_mode == "train":
             rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
         else:
@@ -604,6 +623,9 @@ class EnvV0(env_base_0.MujocoEnv):
                         self.saved_mask = mask.copy()
                         self.mask_step = self.mask_delay_steps
                 self.mask_step -= 1
+        # TODO: from the ICLR submission (Check it )
+        elif self.mask_type == "object_image":
+            raise NotImplementedError("self.mask_type == object_image is not implemented")
         elif self.mask_type == "gdino_sync":
             pil_image = Image.fromarray(rgb)
             t1 = time.time()

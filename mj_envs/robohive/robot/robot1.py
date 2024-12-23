@@ -764,7 +764,8 @@ class Robot():
     def reset(self,
               reset_pos,
               reset_vel,
-              blocking = True
+              blocking = True,
+              seed=0, # to be compatible w/ sb3 for some reason (TODO: check it later)
               ):
 
         prompt("Resetting {}".format(self.name), 'white', 'on_grey', flush=True)

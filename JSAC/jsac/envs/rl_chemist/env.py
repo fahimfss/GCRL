@@ -21,6 +21,7 @@ class RLC_Env(gym.Wrapper):
                  mask_delay_steps=2,
                  step_time=None,
                  video_path=".",
+                 reward_mode="mask_size",
                  render_interactive=False):
 
         if target_obj_num >= 0:
@@ -40,7 +41,8 @@ class RLC_Env(gym.Wrapper):
                                         env_mode=env_mode,
                                         mask_type=mask_type,
                                         mask_delay_type=mask_delay_type,
-                                        mask_delay_steps=mask_delay_steps))
+                                        mask_delay_steps=mask_delay_steps,
+                                        reward_mode=reward_mode))
 
         self._env_name = env_name
         self._image_history = image_history
