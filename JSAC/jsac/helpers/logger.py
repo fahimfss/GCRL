@@ -58,6 +58,8 @@ class MetersGroup(object):
         self._file_name = file_name
         self._formating = formating
         self._meters = defaultdict(AverageMeter)
+        
+        ## For these items, the latest value is reported
         self._value_items = ['num_updates', 
                              'battery_charge', 
                              'episode', 
@@ -66,13 +68,16 @@ class MetersGroup(object):
                              'return', 
                              'step', 
                              'eval_step',
-                             'elapsed_time']
+                             'elapsed_time',
+                             'gdino_step',
+                             'gdino_accuracy']
         self._int_value_items = ['num_updates', 
                                  'battery_charge', 
                                  'episode', 
                                  'episode_steps', 
                                  'eval_step',
-                                 'step']
+                                 'step',
+                                 'gdino_step']
 
     def log(self, key, value, n=1):
         if key in self._value_items:
@@ -145,9 +150,7 @@ class Logger(object):
                  wandb_run_name='', 
                  wandb_resume=False, 
                  config='rl',
-                 eval=False,
-                 wandb_entity_name=None,
-                 wandb_group=None):
+                 eval=False):
         
         self._log_queue = Queue()
         self._log_dir = log_dir
@@ -156,10 +159,8 @@ class Logger(object):
         self._use_tb = use_tb
         self._use_wandb = use_wandb
         self._wandb_project_name = wandb_project_name
-        self._wandb_entity_name = wandb_entity_name
         self._wandb_run_name = wandb_run_name
         self._wandb_resume = wandb_resume
-        self._wandb_group = wandb_group
         self._config = config
         self._eval = eval
 
@@ -202,9 +203,7 @@ class Logger(object):
                 name=self._wandb_run_name,
                 id=id,
                 config=self._args,
-                resume=self._wandb_resume,
-                entity=self._wandb_entity_name,
-                group=self._wandb_group,
+                resume=self._wandb_resume
             )
         else:
             self._use_wandb = False
@@ -222,13 +221,14 @@ class Logger(object):
                         self._returns.append(dict['return']) 
                         self._episode_steps.append(dict['episode_steps'])
 
-            start_step = self._args['start_step']
-            config_name = f'config_{start_step}.txt'
-            config_path = os.path.join(self._log_dir, config_name) 
-            with open(config_path, 'w') as cfl:
-                for key, value in self._args.items():
-                    cfl.write(f'{key} -> {value}')
-                    cfl.write('\n\n')
+            if self._args:
+                start_step = self._args['start_step']
+                config_name = f'config_{start_step}.txt'
+                config_path = os.path.join(self._log_dir, config_name) 
+                with open(config_path, 'w') as cfl:
+                    for key, value in self._args.items():
+                        cfl.write(f'{key} -> {value}')
+                        cfl.write('\n\n')
 
         plot_name = 'eval_learning_curve' if self._eval else 'learning_curve'
         self._plot_path = os.path.join(self._log_dir, f'{plot_name}.png') 

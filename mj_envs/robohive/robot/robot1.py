@@ -64,12 +64,15 @@ class Robot():
         self.name = robot_name+'(sim)' if is_hardware is None else robot_name+'(hdr)'
         self._act_mode = act_mode
         self.is_hardware = bool(is_hardware)
-        self.act_mid = np.zeros(8)
-        self.act_rng = np.ones(8) * 2
+        self.act_mid = np.zeros(7)
+        self.act_rng = np.ones(7) * 2
         self._sensor_cache_maxsize = sensor_cache_maxsize
         self._noise_scale = noise_scale
-
-
+        config_path = path.join(
+            path.dirname(__file__),
+            "../envs/arms/ur10e/ur10e_config.xml",
+        )
+        self._read_specs_from_config(config_path)
         if random_generator == None:
             self.np_random = np.random
         else:
@@ -86,12 +89,6 @@ class Robot():
         else:
             # use provided sim
             self.sim = mj_sim
-
-
-        config_path = path.join( ## NEED TO HANDLE BOTH ENVIRONMENTS
-            path.dirname(__file__),
-            "../envs/arms/franka/franka_config.xml" if "franka" in self.sim.model.name else "../envs/arms/ur10e/ur10e_config.xml",
-        )
 
         # Configure the robot
         if self.robot_config is None:
@@ -120,9 +117,6 @@ class Robot():
 
         # refresh the sensor cache
         self._sensor_cache_refresh()
-
-        # Read config after mj_sim
-        self._read_specs_from_config(config_path)
 
 
     # Check if all hardware components are okay
@@ -686,14 +680,15 @@ class Robot():
             ctrl_normalized:    is the ctrl normalized to [-1, 1]
             realTimeSim:        run simulate real world speed via sim
         """
-        control = (self.robot_vel_bound[:self.sim.model.nu, 1]+self.robot_vel_bound[:self.sim.model.nu, 0])/2.0 + \
-                                        ctrl_desired*(self.robot_vel_bound[:self.sim.model.nu, 1]-self.robot_vel_bound[:self.sim.model.nu, 0])/2.0
-        control = last_qpos[:self.sim.model.nu] + control*dt
-        ctrl_feasible = np.clip(control, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1])
+        control = (self.robot_vel_bound[:7, 1]+self.robot_vel_bound[:7, 0])/2.0 + \
+                                        ctrl_desired*(self.robot_vel_bound[:7, 1]-self.robot_vel_bound[:7, 0])/2.0
+        control = last_qpos[:7] + control*dt
+        ctrl_feasible = np.clip(control, self.robot_pos_bound[:7, 0], self.robot_pos_bound[:7, 1])
 
         n_frames=int(dt/self.sim.step_duration)
         self.sim.data.ctrl[:] = ctrl_feasible
         self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
+
         return ctrl_feasible
     
     def _ctrl_velocity_limits(self, ctrl_velocity: np.ndarray, last_robot_qpos, dt):
@@ -709,9 +704,9 @@ class Robot():
             ctrl_position (np.ndarray): input joint position given to the MuJoCo simulation actuators.
         """
         ctrl_feasible_vel = np.clip(
-            ctrl_velocity, self.robot_vel_bound[:self.sim.model.nu, 0], self.robot_vel_bound[:self.sim.model.nu, 1]
+            ctrl_velocity, self.robot_vel_bound[:7, 0], self.robot_vel_bound[:7, 1]
         )
-        ctrl_feasible_position = last_robot_qpos[:self.sim.model.nu] + ctrl_feasible_vel * dt
+        ctrl_feasible_position = last_robot_qpos[:7] + ctrl_feasible_vel * dt
         return ctrl_feasible_position
 
     def _ctrl_position_limits(self, ctrl_position: np.ndarray):
@@ -724,7 +719,7 @@ class Robot():
             ctrl_feasible_position (np.ndarray): clipped joint position control input.
         """
         ctrl_feasible_position = np.clip(
-            ctrl_position, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1]
+            ctrl_position, self.robot_pos_bound[:7, 0], self.robot_pos_bound[:7, 1]
         )
         return ctrl_feasible_position
 
@@ -740,10 +735,10 @@ class Robot():
         """
         root, root_name = get_config_root_node(config_file_name=robot_configs)
         self.robot_name = root_name[0]
-        self.robot_pos_bound = np.zeros([self.sim.model.nu, 2], dtype=float)
-        self.robot_vel_bound = np.zeros([self.sim.model.nu, 2], dtype=float)
-        self.robot_pos_noise_amp = np.zeros(self.sim.model.nu, dtype=float)
-        self.robot_vel_noise_amp = np.zeros(self.sim.model.nu, dtype=float)
+        self.robot_pos_bound = np.zeros([7, 2], dtype=float)
+        self.robot_vel_bound = np.zeros([7, 2], dtype=float)
+        self.robot_pos_noise_amp = np.zeros(7, dtype=float)
+        self.robot_vel_noise_amp = np.zeros(7, dtype=float)
 
         #print(self.robot_pos_bound)
         for i in range(7):
@@ -765,7 +760,7 @@ class Robot():
               reset_pos,
               reset_vel,
               blocking = True,
-              seed=0, # To adjust with sb3 env
+              seed=0,
               ):
 
         prompt("Resetting {}".format(self.name), 'white', 'on_grey', flush=True)

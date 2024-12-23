@@ -1,6 +1,8 @@
 import jax
 import functools
-from jax import random, numpy as jnp
+import numpy as np
+import jax.image
+from jax import random, numpy as jnp 
 
 from jsac.algo.replay_buffer import Batch
 
@@ -136,6 +138,129 @@ def batched_random_crop(key, imgs, padding=4):
     keys = jax.random.split(key, imgs.shape[0])
     return jax.vmap(random_crop, (0, 0, None))(keys, imgs, padding)
 
+def random_contrast(key, image, lower=0.5, upper=1.5):
+    """Apply random contrast to RGB channels only."""
+    factor = jax.random.uniform(key, (), minval=lower, maxval=upper)
+    mean = jnp.mean(image, axis=(0, 1), keepdims=True)
+    return (image - mean) * factor + mean
+
+def random_brightness(key, image, delta=0.2):
+    """Apply random brightness to RGB channels only."""
+    factor = jax.random.uniform(key, (), minval=-delta, maxval=delta)
+    return image + factor
+
+def random_saturation(key, image, lower=0.5, upper=1.5):
+    """Apply random saturation to RGB channels only."""
+    factor = jax.random.uniform(key, (), minval=lower, maxval=upper)
+    gray = jnp.mean(image, axis=-1, keepdims=True)
+    return (image - gray) * factor + gray
+
+def gaussian_kernel(size, sigma):
+    """Create a 2D Gaussian kernel."""
+    x = jnp.arange(-(size // 2), size // 2 + 1)
+    y = jnp.arange(-(size // 2), size // 2 + 1)
+    X, Y = jnp.meshgrid(x, y)
+    kernel = jnp.exp(-(X**2 + Y**2)/(2*sigma**2))
+    return kernel / jnp.sum(kernel)
+
+def random_gaussian_blur(key, image, kernel_size=5, sigma_range=(0.1, 2.0)):
+    """Apply random Gaussian blur to RGB channels only."""
+    sigma = jax.random.uniform(key, (), minval=sigma_range[0], maxval=sigma_range[1])
+    kernel = gaussian_kernel(kernel_size, sigma)
+    kernel = kernel[:, :, jnp.newaxis, jnp.newaxis]
+    
+    # Prepare kernel for each input channel
+    num_channels = image.shape[-1]
+    kernel = jnp.repeat(kernel, num_channels, axis=-2)
+    
+    # Pad the image for convolution
+    pad_width = kernel_size // 2
+    padded = jnp.pad(image, ((pad_width, pad_width), (pad_width, pad_width), (0, 0)), mode='reflect')
+    
+    # Reshape for conv_general_dilated
+    padded = padded.transpose(2, 0, 1)[None, ...]  # NCHW format
+    kernel = kernel.transpose(2, 3, 0, 1)  # IOHW format
+    
+    # Apply convolution
+    result = jax.lax.conv_general_dilated(
+        lhs=padded,
+        rhs=kernel,
+        window_strides=(1, 1),
+        padding='VALID',
+        dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
+        feature_group_count=num_channels
+    )
+    
+    # Reshape back to original format
+    result = result[0].transpose(1, 2, 0)
+    return result
+
+def augment_rgb_group(key, image_group, config):
+    """Apply augmentations to a group of 3 RGB channels."""
+    keys = jax.random.split(key, 4)
+    
+    # Apply augmentations in sequence
+    image_group = random_contrast(keys[0], image_group, 
+                                lower=config['contrast_lower'], 
+                                upper=config['contrast_upper'])
+    image_group = random_brightness(keys[1], image_group, 
+                                  delta=config['brightness_delta'])
+    image_group = random_saturation(keys[2], image_group, 
+                                  lower=config['saturation_lower'], 
+                                  upper=config['saturation_upper'])
+    image_group = random_gaussian_blur(keys[3], image_group, 
+                                     kernel_size=config['blur_kernel_size'],
+                                     sigma_range=config['blur_sigma_range'])
+    
+    # Clip values to valid range for uint8
+    return jnp.clip(image_group, 0, 255)
+
+def augment_single_image(key, image, config):
+    """Apply augmentations to a single image with multiple RGB groups and masks."""
+    keys = jax.random.split(key, 3)
+    
+    # Process each RGB group separately
+    rgb_groups = [
+        (0, 1, 2),  # First RGB group
+        (4, 5, 6),  # Second RGB group
+        (8, 9, 10)  # Third RGB group
+    ]
+    
+    result = image.astype(jnp.float32)
+    
+    for idx, (r, g, b) in enumerate(rgb_groups):
+        # Extract RGB group
+        rgb_image = result[:, :, [r, g, b]]
+        
+        # Apply augmentations
+        augmented = augment_rgb_group(keys[idx], rgb_image, config)
+        
+        # Put back the augmented channels
+        result = result.at[:, :, [r, g, b]].set(augmented)
+    
+    return result.astype(jnp.uint8)
+
+def batched_augmentations(key, images, config=None):
+    """Apply augmentations to a batch of images."""
+    if config is None:
+        config = {
+            'contrast_lower': 0.8,
+            'contrast_upper': 1.3,
+            
+            'brightness_delta': 0.2,
+            
+            'saturation_lower': 0.8,
+            'saturation_upper': 1.3,
+            
+            'blur_kernel_size': 3, 
+            'blur_sigma_range': (0.1, 0.5)
+        }
+    
+    # Generate keys for each image in the batch
+    keys = jax.random.split(key, images.shape[0])
+    
+    # Apply augmentations to each image in the batch
+    return jax.vmap(augment_single_image, (0, 0, None))(keys, images, config)
 
 @functools.partial(jax.jit, static_argnames=('update_actor',
                                              'update_target',
@@ -158,11 +283,13 @@ def update_jit(rng,
     img_fl = batch.images is not None
 
     if img_fl:
-        images = batched_random_crop(key1, batch.images)
-        next_images = batched_random_crop(key2, batch.next_images)
-        
-        batch = batch._replace(images=images,
-                            next_images=next_images)
+        image = batched_augmentations(key1, batch.images)
+        next_images = batched_augmentations(key1, batch.next_images)
+                                      
+        images = batched_random_crop(key2, image)
+        next_images = batched_random_crop(key2, next_images) 
+
+        batch = batch._replace(images=images, next_images=next_images)
         
     batch_size = batch.actions.shape[0] // num_critic_updates
     for i in range(num_critic_updates):

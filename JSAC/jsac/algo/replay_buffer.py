@@ -36,6 +36,7 @@ class ReplayBuffer():
                  batch_size, 
                  init_buffers=True, 
                  load_path='',
+                 img_aug_path='',
                  min_episode_length=20):
 
         self._image_shape = image_shape
@@ -61,6 +62,28 @@ class ReplayBuffer():
             self._load_path = load_path
         else:
             self._load_path = ''
+
+        self._aug_imgs = None
+        if len(img_aug_path) > 0:
+            self._aug_imgs = np.load(img_aug_path)
+            self._zero_channel = np.zeros((self._batch_size, 90, 159, 1), dtype=np.uint8)
+            
+            filter_size = (90, 159, 12)
+            values = [0, 0.04, 0.08, 0.12, 0.16]
+
+            filters = []
+            for v in values:
+                f = np.zeros(filter_size)
+                if v != 0:
+                    f[..., [0, 1, 2, 4, 5, 6, 8, 9, 10]] = v
+                filters.append(f)
+
+            filters = np.stack(filters)
+            zero_filter = np.zeros((1, *filter_size))
+            self._final_filters_1 = np.tile(filters, (256 // 5, 1, 1, 1))
+            self._final_filters_1 = np.vstack([self._final_filters_1 , zero_filter])
+            
+            self._final_filters_0 = 1 - self._final_filters_1
 
         if init_buffers:
             self._init_buffers()
@@ -172,6 +195,25 @@ class ReplayBuffer():
             idxs_2 = self._next_images_idxs[idxs]
             images = self._images[idxs_1]
             next_images = self._images[idxs_2]
+            
+            if self._aug_imgs is not None:
+                indices = np.random.choice(self._aug_imgs.shape[0], self._batch_size, replace=False)
+                sampled_images = self._aug_imgs[indices]
+                
+                sampled_images_4ch = np.concatenate([sampled_images, self._zero_channel], axis=-1) # shape: (256, 90, 159, 4)
+                mask = np.concatenate([sampled_images_4ch, sampled_images_4ch, sampled_images_4ch], axis=-1) # shape: (256, 90, 159, 12)
+
+                # Convert images and mask to float if needed for arithmetic
+                images = images.astype(np.float32)
+                next_images = next_images.astype(np.float32)
+                mask = mask.astype(np.float32)
+
+                # 4. Imprint the mask onto images and next_images
+                images = (images * self._final_filters_0) + (mask * self._final_filters_1)
+                next_images = (next_images * self._final_filters_0) + (mask * self._final_filters_1)
+                
+                images = images.astype(np.uint8)
+                next_images = next_images.astype(np.uint8)
 
         if self._ignore_propri:
             propris = None
@@ -272,7 +314,8 @@ class AsyncSMReplayBuffer(ReplayBuffer):
                  capacity, 
                  batch_size, 
                  obs_queue, 
-                 load_path=''):
+                 load_path='',
+                 img_aug_path='',):
         
         super().__init__(
             image_shape, 
@@ -281,7 +324,8 @@ class AsyncSMReplayBuffer(ReplayBuffer):
             capacity,
             batch_size, 
             False, 
-            load_path)
+            load_path, 
+            img_aug_path)
         
         sizes = self._get_sb_sizes(batch_size)
 

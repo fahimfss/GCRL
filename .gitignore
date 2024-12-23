@@ -145,3 +145,5 @@ buffers/
 
 *grabs.txt 
 *inference_test_data*
+*.mp4
+training/job_* 

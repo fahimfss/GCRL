@@ -41,24 +41,23 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='baseline', type=str)
+    parser.add_argument('--task_name', default='gdino_sync', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
-    parser.add_argument('--gt_steps', default=50_000, type=str)
+    parser.add_argument('--mask_type', default='gdino_sync', type=str)  # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--step_time', default=0.05, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=400_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
     parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
-    parser.add_argument('--sync_mode', default=False, action='store_true')
+    parser.add_argument('--sync_mode', default=True, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
     
     # critic
@@ -197,6 +196,7 @@ def main(seed=-1, env_name=None):
     if args.eval_steps > 0:
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC'
+        eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()
         eval_queue_2 = mp.Queue()
         path1 = os.path.join(args.work_dir, 'eval_log')
@@ -214,6 +214,7 @@ def main(seed=-1, env_name=None):
                                             False)
 
     update_paused = True
+    time.sleep(30)
     state = env.reset(create_vid=False)
     
     first_step = True
@@ -273,11 +274,18 @@ def main(seed=-1, env_name=None):
             agent.checkpoint(env.total_steps)
             
         if args.eval_steps > 0 and env.total_steps % args.eval_steps == 0:
+            agent.pause_update()
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
+            time.sleep(10)
+            eval_queue_1.get()
             
             eval_queue_2.put(agent.get_actor_params())
             eval_queue_2.put(env.total_steps)
+            time.sleep(10)
+            eval_queue_2.get()
+            if env.total_steps < args.env_steps:
+                agent.resume_update()
 
     if not args.sync_mode:
         agent.pause_update()

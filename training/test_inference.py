@@ -41,22 +41,21 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='baseline', type=str)
+    parser.add_argument('--task_name', default='gdino_async', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
-    parser.add_argument('--gt_steps', default=50_000, type=str)
-    parser.add_argument('--step_time', default=0.05, type=float) 
+    parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async"
+    parser.add_argument('--step_time', default=0.1, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=400_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=300, type=int)
     
     # train
-    parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=400_000, type=int)
+    parser.add_argument('--init_steps', default=50_000, type=int)
+    parser.add_argument('--env_steps', default=50_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -85,20 +84,21 @@ def parse_args():
     parser.add_argument('--num_cameras', default=1, type=int)
     parser.add_argument('--update_every', default=1, type=int)
     parser.add_argument('--log_every', default=1, type=int)
-    parser.add_argument('--eval_steps', default=10_000, type=int)
+    parser.add_argument('--eval_steps', default=0, type=int)
     parser.add_argument('--num_eval_episodes', default=10, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tensorboard', default=False, 
                         action='store_true')
-    parser.add_argument('--xtick', default=10_000, type=int)
+    parser.add_argument('--xtick', default=50_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_model_freq', default=500_000, type=int)
-    parser.add_argument('--load_model', default=-1, type=int)
+    parser.add_argument('--load_model', default=500000, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
-
+    
+    parser.add_argument('--img_aug_path', default='', type=str)
     parser.add_argument('--buffer_save_path', default='', type=str) # ./buffers/
     parser.add_argument('--buffer_load_path', default='', type=str) # ./buffers/
 
@@ -122,21 +122,6 @@ def main(seed=-1, env_name=None):
     args.name = f'{args.env_name}_{args.mode}_{sync_mode}_{args.task_name}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
-
-    if os.path.exists(args.work_dir):
-        inp = input('The work directory already exists. ' +
-                    'Please select one of the following: \n' +  
-                    '  1) Press Enter to resume the run.\n' + 
-                    '  2) Press X to remove the previous work' + 
-                    ' directory and start a new run.\n' + 
-                    '  3) Press any other key to exit.\n')
-        if inp == 'X' or inp == 'x':
-            shutil.rmtree(args.work_dir)
-            print('Previous work dir removed.')
-        elif inp == '':
-            pass
-        else:
-            exit(0)
 
     make_dir(args.work_dir)
 
@@ -197,6 +182,7 @@ def main(seed=-1, env_name=None):
     if args.eval_steps > 0:
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC'
+        eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()
         eval_queue_2 = mp.Queue()
         path1 = os.path.join(args.work_dir, 'eval_log')
@@ -220,10 +206,7 @@ def main(seed=-1, env_name=None):
 
     while env.total_steps < args.env_steps:
         t1 = time.time()
-        if env.total_steps < args.init_steps + 100:
-            action = env.action_space.sample()
-        else:
-            action = agent.sample_actions(state)
+        action = agent.sample_actions(state)
         t2 = time.time()
         next_state, reward, done, info = env.step(action) 
         t3 = time.time()
@@ -273,11 +256,18 @@ def main(seed=-1, env_name=None):
             agent.checkpoint(env.total_steps)
             
         if args.eval_steps > 0 and env.total_steps % args.eval_steps == 0:
+            agent.pause_update()
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
+            time.sleep(10)
+            eval_queue_1.get()
             
             eval_queue_2.put(agent.get_actor_params())
             eval_queue_2.put(env.total_steps)
+            time.sleep(10)
+            eval_queue_2.get()
+            if env.total_steps < args.env_steps:
+                agent.resume_update()
 
     if not args.sync_mode:
         agent.pause_update()

@@ -33,13 +33,14 @@ def load_model(model_config_path: str, model_checkpoint_path: str, device: str =
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
     model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
     model.eval()
-    return model
+    return model.to(device)
 
 
-def load_image(image_path: str) -> Tuple[np.array, torch.Tensor]:
+def load_image(image_path: str, inference_image_size) -> Tuple[np.array, torch.Tensor]:
     transform = T.Compose(
         [
-            T.RandomResize([800], max_size=1333),
+            # T.RandomResize([800], max_size=1333),
+            T.ResizeDebug(inference_image_size),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
@@ -67,8 +68,8 @@ def predict(
     # cv2.waitKey(delay=2000) 
     # cv2.destroyAllWindows()
 
-    model = model.to(device)
-    image = image.to(device)
+    # model = model.to(device) 
+    image = image.to(device) 
 
     with torch.no_grad():
         outputs = model(image[None], captions=[caption])
@@ -246,12 +247,14 @@ class Model:
         transform = T.Compose(
             [
                 T.RandomResize([800], max_size=1333),
+                # T.ResizeDebug([480, 848]),
                 T.ToTensor(),
                 T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
             ]
         )
         image_pillow = Image.fromarray(cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB))
         image_transformed, _ = transform(image_pillow, None)
+        print(image_transformed.shape)
         return image_transformed
 
     @staticmethod
