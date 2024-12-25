@@ -26,6 +26,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 from datetime import datetime
 import time
 from wandb.integration.sb3 import WandbCallback
+import multiprocessing as mp
 
 import numpy as np
 import argparse
@@ -43,14 +44,15 @@ parser.add_argument('--image_height', default=120, type=int)     # Mode: img, im
 parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
 # parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
 parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
+parser.add_argument('--n_stack_frames', default=3, type=int) # TODO: refactor w/ image_history
 # parser.add_argument('--mask_delay_type', default='none', type=str)
 # parser.add_argument('--mask_delay_steps', default=1, type=int) 
+parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "1hot" 
 parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
 parser.add_argument('--mask_delay_type', default='none', type=str)
 parser.add_argument('--mask_delay_steps', default=2, type=int) 
 parser.add_argument('--reward_mode', default='distance', type=str)
-parser.add_argument('--step_time', default=0.05, type=float) 
-
+parser.add_argument('--step_time', default=0.05, type=float)
 
 parser.add_argument('--max_time_steps', default=250, type=int)
 
@@ -79,8 +81,14 @@ class TensorboardCallback(BaseCallback):
 class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim=1024):  # Adjust features_dim if needed
         super(CustomDictFeaturesExtractor, self).__init__(observation_space, features_dim)
+        # TODO: get it from the environment better
+        if args.condition_type == "mask":
+            n_channels = 4
+        elif args.condition_type == "object_image":
+            n_channels = 6
+        
         self.cnn = nn.Sequential(
-            nn.Conv2d(12, 32, kernel_size=8, stride=4, padding=2),  # Adjust padding to fit your needs
+            nn.Conv2d(n_channels*args.n_stack_frames, 32, kernel_size=8, stride=4, padding=2),  # Adjust padding to fit your needs
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
@@ -109,6 +117,25 @@ class CustomMultiInputPolicy(ActorCriticPolicy):
                                                      features_extractor_kwargs={},
                                                      net_arch=[{'vf': [512, 512], 'pi': [512, 512]}])  # Adjust architecture if needed
 
+      
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    """
+    Linear learning rate schedule.
+
+    :param initial_value: Initial learning rate.
+    :return: schedule that computes
+      current learning rate depending on remaining progress
+    """
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0.
+
+        :param progress_remaining:
+        :return: current learning rate
+        """
+        return progress_remaining * initial_value
+
+    return func
 
 class WrapperJSAC(gym.Wrapper):
     def __init__(self, env):
@@ -164,25 +191,6 @@ class TimeLimitWrapper(gym.Wrapper):
             truncated = True
         return obs, reward, done, truncated, info
 
-        
-def linear_schedule(initial_value: float) -> Callable[[float], float]:
-    """
-    Linear learning rate schedule.
-
-    :param initial_value: Initial learning rate.
-    :return: schedule that computes
-      current learning rate depending on remaining progress
-    """
-    def func(progress_remaining: float) -> float:
-        """
-        Progress will decrease from 1 (beginning) to 0.
-
-        :param progress_remaining:
-        :return: current learning rate
-        """
-        return progress_remaining * initial_value
-
-    return func
 
 def make_env(env_name, idx, seed=0, eval_mode=False):
     def _init():
@@ -213,6 +221,7 @@ def make_env(env_name, idx, seed=0, eval_mode=False):
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
+                   condition_type=args.condition_type,
                    mask_type=args.mask_type, # "ground_truth", "gdino_sync", "gdino_async"
                    mask_delay_type=args.mask_delay_type, # "none", "n_step", "sequential"
                    mask_delay_steps=args.mask_delay_steps,
@@ -261,12 +270,12 @@ def main():
 
     envs = VecVideoRecorder(env, video_log_path, record_video_trigger=lambda x: x % 2000 == 0, video_length=250)
     envs = VecMonitor(env)
-    envs = VecFrameStack(envs, n_stack = 3)
+    envs = VecFrameStack(envs, n_stack=args.n_stack_frames)
 
     ## EVAL
     eval_env = DummyVecEnv([make_env(env_name, i, seed=args.seed, eval_mode=True) for i in range(1)])
     eval_env.render_mode = 'rgb_array'
-    eval_envs = VecFrameStack(eval_env, n_stack = 3)
+    eval_envs = VecFrameStack(eval_env, n_stack=args.n_stack_frames)
     
     eval_callback = EvalCallback(eval_envs, best_model_save_path=log_path, log_path=log_path, eval_freq=2000, n_eval_episodes=20, deterministic=True, render=False)
     
@@ -300,13 +309,15 @@ def main():
             "tensorboard_log_path": tensorboard_log_path,
             "video_log_path": video_log_path,
             "reward_mode": args.reward_mode,
+            "condition_type": args.condition_type,
             "mask_type": args.mask_type,
             "mask_delay_steps": args.mask_delay_steps,
             "mask_delay_type": args.mask_delay_type,
             "image_history": args.image_history,
             "step_time": args.step_time,
             "max_time_steps": args.max_time_steps,
-            "logdir": args.logdir
+            "logdir": args.logdir,
+            "n_stack_frames": args.n_stack_frames,
             }
         #config = {**config, **envs.rwd_keys_wt}
         run = wandb.init(project="RL-Chemist_Reach",
@@ -320,6 +331,7 @@ def main():
                         tags=[
                             f"HWC={args.image_height}x{args.image_width}x3"
                             f"reward_mode={args.reward_mode}",
+                            f"condition_type={args.condition_type}"
                             f"mask_type={args.mask_type}",
                             f"mask_delay_steps={args.mask_delay_steps}",
                             f"mask_delay_type={args.mask_delay_type}",
@@ -335,7 +347,9 @@ def main():
         pass 
 
     callbacks = []
-    callbacks += [eval_callback, WandbCallback(gradient_save_freq=100)]
+    callbacks += [eval_callback]
+    if IS_WnB_enabled:
+        callbacks += [WandbCallback(gradient_save_freq=100)]
     
     callback = CallbackList(callbacks)
     
@@ -345,5 +359,6 @@ def main():
         run.finish()
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn')
     # TRAIN
     main()

@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --array=2,3,4,5
 #SBATCH --time=0-23:30
-#SBATCH --mem=20G
+#SBATCH --mem=66G
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=baseline
 
@@ -12,10 +12,9 @@ source /home/hany606/envs/RLCENV/bin/activate
 
 cd /home/hany606/repos/RLC/training
 
-reward_mode="distance"
-mask_type="ground_truth"
+reward_mode="mask_size"
+mask_type="gdino_sync"
 condition_type="mask"
-
 
 export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"

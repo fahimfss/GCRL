@@ -15,6 +15,7 @@ class RLC_Env(gym.Wrapper):
                  image_width=128, 
                  image_height=128, 
                  env_mode="train",
+                 condition_type="mask",
                  mask_type="ground_truth",
                  target_obj_num=-1,
                  mask_delay_type="none",
@@ -32,17 +33,23 @@ class RLC_Env(gym.Wrapper):
             if step_time:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                         env_mode=env_mode,
+                                        condition_type=condition_type,
                                         mask_type=mask_type,
                                         mask_delay_type=mask_delay_type,
                                         mask_delay_steps=mask_delay_steps,
-                                        step_time=step_time))
+                                        step_time=step_time,
+                                        _img_width=image_width,
+                                        _img_heigh=image_height,))
             else:
-                super().__init__(gym.make(f'robohive.envs:{env_name}', 
+                super().__init__(gym.make(f'robohive.envs:{env_name}',
                                         env_mode=env_mode,
+                                        condition_type=condition_type,
                                         mask_type=mask_type,
                                         mask_delay_type=mask_delay_type,
                                         mask_delay_steps=mask_delay_steps,
-                                        reward_mode=reward_mode))
+                                        reward_mode=reward_mode,
+                                        _img_width=image_width,
+                                        _img_heigh=image_height,))
 
         self._env_name = env_name
         self._image_history = image_history
@@ -55,6 +62,7 @@ class RLC_Env(gym.Wrapper):
         self._image_buffer = deque([], maxlen=self._image_history)
         self._obs_dim = state['vector'].shape[0] 
         self._action_dim = self.env.action_space.shape[0]
+        self._condition_type = condition_type
         
         self._latest_image = None
         self._reset = False
@@ -86,8 +94,10 @@ class RLC_Env(gym.Wrapper):
         prop = ob['vector']
         done = terminated 
         
-        msk = (new_img[:, :, 3:4].squeeze(-1),)*3
-
+        if self._condition_type == 'mask':
+            msk = np.stack((new_img[:, :, 3:4].squeeze(-1),)*3, axis=-1)
+        elif self._condition_type == 'object_image':
+            msk = new_img[:, :, 3:][..., ::-1]
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
@@ -125,7 +135,10 @@ class RLC_Env(gym.Wrapper):
         new_img = ob['image']
         prop = ob['vector']
         
-        msk = (new_img[:, :, 3:4].squeeze(-1),)*3
+        if self._condition_type == 'mask':
+            msk = np.stack((new_img[:, :, 3:4].squeeze(-1),)*3, axis=-1)
+        elif self._condition_type == 'object_image':
+            msk = new_img[:, :, 3:][..., ::-1]
         
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
@@ -150,7 +163,7 @@ class RLC_Env(gym.Wrapper):
     
     def add_frame_to_video_buffer(self, text, new_img, msk): 
         new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
-        frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], np.stack(msk, axis=-1)), axis=1).copy()
+        frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], msk), axis=1).copy()
         
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 1

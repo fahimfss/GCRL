@@ -1,3 +1,5 @@
+# TODO: refactor due to condition_type
+# condition_type -> it can be object_image but still, we are using gdino or gt to compute the mask similar to Mask-3C-GT environment in ICLR submission
 import os
 import time
 import copy
@@ -11,13 +13,14 @@ import numpy as np
 from PIL import Image
 import gymnasium as gym
 import multiprocessing as mp
+from multiprocessing import shared_memory # Due to AttributeError: module 'multiprocessing' has no attribute 'shared_memory' in python 3.10
 from torchvision.ops import box_convert
-
 from robohive.envs import env_base_0
 import groundingdino.datasets.transforms as T 
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
 from groundingdino.util.inference import load_model, predict
+
 
 
 BOX_THRESHOLD = 0.40
@@ -92,7 +95,7 @@ def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
     #                    "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
     count = 0
     
-    img_shm = mp.shared_memory.SharedMemory(name=mem_name) 
+    img_shm = shared_memory.SharedMemory(name=mem_name) 
     img = np.ndarray(img_shape, dtype=np.uint8, buffer=img_shm.buf)
     h, w, c = img_shape 
     
@@ -154,24 +157,33 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
+               # for gdino -> I guess -> TODO: check
                image_width=848,
                image_height=480,
                frame_skip = 20, 
-               env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
-               reward_mode = "mask_size",   # "distance", "mask_size"
-               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
-               mask_delay_type = "none",    # "none", "n_step", "sequential"
-               mask_delay_steps = 2,
+               env_mode="train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
+               condition_type="mask",     # "mask", "object_image", "1hot"
+               reward_mode="mask_size",   # "distance", "mask_size"
+               mask_type="ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
+               mask_delay_type="none",    # "none", "n_step", "sequential"
+               mask_delay_steps=2,
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
+               # TODO: refactor (Testing for now)
+               _img_width=848,
+               _img_height=480,
                **kwargs,
         ):
-
+        print(f"env_mode: {env_mode}\tcondition_type:{condition_type}\treward_mode: {reward_mode}\tmask_type: {mask_type}\tmask_delay_type: {mask_delay_type}\tmask_delay_steps: {mask_delay_steps}")
         # ids
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
         self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
         self.IMAGE_WIDTH = image_width
-        self.IMAGE_HEIGHT = image_height  
+        self.IMAGE_HEIGHT = image_height 
+        
+        self._img_width = _img_width
+        self._img_height = _img_height
+        
         self.fixed_positions = None
         self.cam_init = True
         self._setup_camera() 
@@ -194,11 +206,14 @@ class EnvV0(env_base_0.MujocoEnv):
         self.prev_action = np.array([0] * self.sim.model.nu)
         
         self.env_mode = env_mode
+        self.condition_type = condition_type
         self.reward_mode = reward_mode
         self.mask_type = mask_type
         self.mask_delay_type = mask_delay_type
         self.mask_delay_steps = mask_delay_steps
-        
+
+        # ================================================================================================
+        # Reward mode
         if reward_mode == "distance":
             weighted_reward_keys = {
                 'distance': -1.0, 
@@ -231,34 +246,9 @@ class EnvV0(env_base_0.MujocoEnv):
             }
         else:
             raise NotImplementedError(f"reward_mode == {reward_mode} is not implemented")
-            
-        if self.mask_type == "gdino_sync":
-            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-            #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-            
-            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-            
-        elif self.mask_type == "gdino_async":
-            self.image_queue = mp.Queue()
-            self.mask_queue = mp.Queue()
-            
-            img_shape = (self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3)
-            original_array = np.zeros(img_shape, dtype=np.uint8)
-            self.img_shm = mp.shared_memory.SharedMemory(create=True, size=original_array.nbytes)
-            self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
-            
-            self.mask_process = mp.Process(target=async_g_dino, args=(img_shape, self.img_shm.name, self.image_queue, self.mask_queue))
-            # async_g_dino(img_shape, mem_name, image_queue, mask_queue):
-            self.mask_process.start()
-            self.images_sent = 0
-            self.masks_recieved = 0
-                
-        if self.mask_delay_type == "n_step":
-            self.mask_step = -1
-        
+        # ================================================================================================
+        # Objects
         self.target_name = "apple"
-        
         self.TS = ['object_1',  'object_2',    'object_3',          'object_4',        'object_5',        'object_6',        'object_7',     'object_8']
         self.TN = ['red apple', 'green block', 'baked brown donut', 'glass flask jar', 'yellow toy duck', 'yellow banana',   'purple clock', 'cup'     ]
         # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
@@ -275,7 +265,40 @@ class EnvV0(env_base_0.MujocoEnv):
             kwargs.pop('step_time')
         else:
             self.step_time = None
-
+        # ================================================================================================
+        # Mask type
+        if self.mask_type == "gdino_sync":
+            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
+            #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
+            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+                                         "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+        elif self.mask_type == "gdino_async":
+            self.image_queue = mp.Queue()
+            self.mask_queue = mp.Queue()
+            
+            img_shape = (self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3)
+            original_array = np.zeros(img_shape, dtype=np.uint8)
+            self.img_shm = shared_memory.SharedMemory(create=True, size=original_array.nbytes)
+            self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
+            
+            self.mask_process = mp.Process(target=async_g_dino, args=(img_shape, self.img_shm.name, self.image_queue, self.mask_queue))
+            # async_g_dino(img_shape, mem_name, image_queue, mask_queue):
+            self.mask_process.start()
+            self.images_sent = 0
+            self.masks_recieved = 0
+        
+        
+        if self.condition_type == "object_image":
+            current_directory = os.getcwd() # /home/hany606/repos/RLC/training
+            print(os.path.join(current_directory, '../mj_envs/robohive/envs/arms/object_image/'))
+            read_img = lambda ts: cv.imread(os.path.join(current_directory, '../mj_envs/robohive/envs/arms/object_image/', ts + '.png'), cv.IMREAD_COLOR)
+            cvt_img = lambda img: cv.cvtColor(img, cv.COLOR_BGR2RGB)
+            self.object_imgs = {ts: cvt_img(read_img(ts)) for ts in self.TS}
+            self.object_image = self.object_imgs[self.target_site_name]
+            
+        if self.mask_delay_type == "n_step":
+            self.mask_step = -1
+            
         super()._setup(obs_keys=obs_keys,
                        proprio_keys=proprio_keys,
                        weighted_reward_keys=weighted_reward_keys,
@@ -296,7 +319,7 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
         obs_dict['mask_size'] = np.array([self.mask_size])  
- 
+
         self.current_observation = self.get_observation()
 
         this_model = sim.model
@@ -396,7 +419,7 @@ class EnvV0(env_base_0.MujocoEnv):
                 self.masks_recieved += 1
             self.images_sent = 0
             self.masks_recieved = 0
-         
+        
         if self.env_mode == "train":
             number = np.random.randint(0, 5)
         elif self.env_mode == "eval_ofd":
@@ -411,8 +434,10 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number] 
         # print("target:", self.target_name)
-        self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
- 
+        self.target_sid = self.sim.model.site_name2id(self.target_site_name)
+        if self.condition_type == "object_image":
+            self.object_image = copy.deepcopy(self.object_imgs[self.target_site_name])
+
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
             if self.env_mode == "inference_3":
                 other_indices = random.sample([i for i in range(8) if i != number], 2)
@@ -460,7 +485,7 @@ class EnvV0(env_base_0.MujocoEnv):
                 x_pos = center_obj_x_pos + (((index - 2) * 0.165) +  random.uniform(-0.02, 0.02))
                 y_pos = center_obj_y_pos + random.uniform(-0.05, 0.05)
                 self.place_object(obj_name, reset_qpos, x_pos, y_pos)
-         
+        
         obs = super().reset(reset_qpos = reset_qpos, reset_qvel = None, **kwargs)
         
         site_pos = self.sim.data.site_xpos[self.target_sid]
@@ -475,7 +500,6 @@ class EnvV0(env_base_0.MujocoEnv):
         self.TM = time.time()
         return {'image': self.final_image, 'vector': obs}
     
-
     def get_observation(self):
         """
         Uses the controllers get_image_data method to return an top-down image (as a np-array).
@@ -582,11 +606,10 @@ class EnvV0(env_base_0.MujocoEnv):
             if dt < self.step_time: 
                 time.sleep(self.step_time - dt)
             self.TM = time.time()
-     
+        
         self.final_image = self.current_image
 
         return self.forward(self.final_image, **kwargs)
-     
     
     def get_image_data(self, camera="end_effector_cam"):
         """
@@ -623,9 +646,6 @@ class EnvV0(env_base_0.MujocoEnv):
                         self.saved_mask = mask.copy()
                         self.mask_step = self.mask_delay_steps
                 self.mask_step -= 1
-        # TODO: from the ICLR submission (Check it )
-        elif self.mask_type == "object_image":
-            raise NotImplementedError("self.mask_type == object_image is not implemented")
         elif self.mask_type == "gdino_sync":
             pil_image = Image.fromarray(rgb)
             t1 = time.time()
@@ -653,7 +673,6 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
-
         elif self.mask_type == "gdino_async":
             if self.current_mask is None:
                 np.copyto(self.img_arr, rgb)
@@ -686,22 +705,31 @@ class EnvV0(env_base_0.MujocoEnv):
                 self.gdino_num_accurate += 1
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
-            
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time, "  target: ", gt_center)
+        
+        if "ground_truth" in self.mask_type or "gdino" in self.mask_type:
+            #define the grasping rectangle
+            x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
+            y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
             
-        #define the grasping rectangle
-        x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
+            # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
+            
+            roi = self.current_mask[y1:y2, x1:x2]
+            white_pixels = float(np.sum(roi == 255))
+            total_pixels = float(roi.size)
+            self.mask_size = (white_pixels / total_pixels) # used for the reward        
         
-        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
+        if self.condition_type == "object_image":
+            _condition = self.object_image/255.
+            rgb = cv.resize(rgb, [self._img_width, self._img_height], interpolation=cv.INTER_AREA)
+            _condition = cv.resize(_condition, [self._img_width, self._img_height], interpolation=cv.INTER_AREA)
+        elif self.condition_type == "1hot":
+            # TODO: check how this one was used -> maybe not concatenated with the image_data but with the proprioceptive data
+            raise NotImplementedError(f"condition_type = 1hot is not impelemted")
+        else:
+            _condition = np.expand_dims(self.current_mask, axis=-1)
         
-        roi = self.current_mask[y1:y2, x1:x2]
-        white_pixels = float(np.sum(roi == 255))
-        total_pixels = float(roi.size)
-        self.mask_size = (white_pixels / total_pixels)  
-
-        self.current_image = np.concatenate((rgb, np.expand_dims(self.current_mask, axis=-1)), axis=2)
-         
+        self.current_image = np.concatenate((rgb, _condition), axis=2)
         return np.array(np.fliplr(np.flipud(rgb)))
 
     def render(self, mode='rgb_array'):
