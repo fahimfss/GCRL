@@ -1,9 +1,9 @@
 #!/bin/bash 
 #SBATCH --account=def-ashique
 #SBATCH --cpus-per-task=4
-#SBATCH --array=2,3,4,5
+#SBATCH --array=1
 #SBATCH --time=0-23:30
-#SBATCH --mem=66G
+#SBATCH --mem=100G
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=baseline
 
@@ -13,6 +13,7 @@ source /home/hany606/envs/RLCENV/bin/activate
 cd /home/hany606/repos/RLC/training
 
 reward_mode="mask_size"
+#.... --array=2,3,4,5
 mask_type="ground_truth"
 
 export MUJOCO_GL="egl"
@@ -26,4 +27,5 @@ export WANDB_MODE=offline
 
 
 
-python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID  --reward_mode=$reward_mode --mask_type=$mask_type
+# python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID
+parallel -j 4 python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type --logdir=$WANDB_DIR --seed ::: {2..5} --reward_mode=$reward_mode --mask_type=$mask_type

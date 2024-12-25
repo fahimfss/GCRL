@@ -299,7 +299,15 @@ def main():
             "log_path": log_path,
             "tensorboard_log_path": tensorboard_log_path,
             "video_log_path": video_log_path,
-        }
+            "reward_mode": args.reward_mode,
+            "mask_type": args.mask_type,
+            "mask_delay_steps": args.mask_delay_steps,
+            "mask_delay_type": args.mask_delay_type,
+            "image_history": args.image_history,
+            "step_time": args.step_time,
+            "max_time_steps": args.max_time_steps,
+            "logdir": args.logdir
+            }
         #config = {**config, **envs.rwd_keys_wt}
         run = wandb.init(project="RL-Chemist_Reach",
                         group=args.group,
@@ -309,6 +317,13 @@ def main():
                         monitor_gym=True,  # auto-upload the videos of agents playing the game
                         save_code=True,  # optional
                         entity='hanyhamed606',
+                        tags=[
+                            f"HWC={args.image_height}x{args.image_width}x3"
+                            f"reward_mode={args.reward_mode}",
+                            f"mask_type={args.mask_type}",
+                            f"mask_delay_steps={args.mask_delay_steps}",
+                            f"mask_delay_type={args.mask_delay_type}",
+                            ],
                         # dir=wandb_logdir,
                         )
         wandb.run.name = '-'.join([env_name, time_now, str(args.seed)])

@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --array=2,3,4,5
 #SBATCH --time=0-23:30
-#SBATCH --mem=66G
+#SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=baseline
 
@@ -26,4 +26,4 @@ export WANDB_MODE=offline
 
 
 
-python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID
+python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID  --reward_mode=$reward_mode --mask_type=$mask_type
