@@ -10,7 +10,7 @@ from jsac.helpers.utils import render_interactive
 
 class RLC_Env(gym.Wrapper):
     def __init__(self, 
-                 env_name,  
+                 env_name,
                  image_history=2, 
                  image_width=128, 
                  image_height=128, 
