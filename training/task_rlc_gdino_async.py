@@ -244,7 +244,7 @@ def main(seed=-1, env_name=None):
                 eval_queue_1.put('start_gdino_async')
                 eval_queue_2.put('start_gdino_async')
             else:
-                state = env.reset(create_vid=False)
+                state = env.reset(create_vid=True)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time
