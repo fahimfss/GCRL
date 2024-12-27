@@ -330,9 +330,9 @@ def main():
                         save_code=True,  # optional
                         entity='hanyhamed606',
                         tags=[
-                            f"HWC={args.image_height}x{args.image_width}x3"
+                            f"HWC={args.image_height}x{args.image_width}x3",
                             f"reward_mode={args.reward_mode}",
-                            f"condition_type={args.condition_type}"
+                            f"condition_type={args.condition_type}",
                             f"mask_type={args.mask_type}",
                             f"mask_delay_steps={args.mask_delay_steps}",
                             f"mask_delay_type={args.mask_delay_type}",
