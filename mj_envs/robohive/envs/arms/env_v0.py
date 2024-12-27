@@ -142,9 +142,12 @@ def is_gdino_accurate(gt_pos, gdino_pos, dist, image_width, image_height):
     return distance < acceptable_dist
 
 class EnvV0(env_base_0.MujocoEnv):
-    DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
+    # DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
+    # DEFAULT_PROPRIO_KEYS = ['qp_robot', 'prev_action']
     
-    DEFAULT_PROPRIO_KEYS = ['qp_robot', 'prev_action']
+    DEFAULT_OBS_KEYS = ['qp_robot', 'qv_robot']
+    DEFAULT_PROPRIO_KEYS = ['qp_robot', 'qv_robot']
+
     
     BOX_THRESHOLD = 0.4
     TEXT_THRESHOLD = 0.25
@@ -157,12 +160,11 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               # for gdino -> I guess -> TODO: check
-               image_width=848,
+               image_width=848,           # for gdino -> I guess -> TODO: check
                image_height=480,
                frame_skip = 20, 
                env_mode="train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
-               condition_type="mask",     # "mask", "object_image", "1hot"
+               condition_type="mask",     # "mask", "object_image", "one_hot"
                reward_mode="mask_size",   # "distance", "mask_size"
                mask_type="ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
                mask_delay_type="none",    # "none", "n_step", "sequential"
@@ -295,10 +297,16 @@ class EnvV0(env_base_0.MujocoEnv):
             cvt_img = lambda img: cv.cvtColor(img, cv.COLOR_BGR2RGB)
             self.object_imgs = {ts: cvt_img(read_img(ts)) for ts in self.TS}
             self.object_image = self.object_imgs[self.target_site_name]
+        elif self.condition_type == "one_hot":
+            obs_keys.append('encoding') if 'encoding' not in obs_keys else None
+            proprio_keys.append('encoding') if 'encoding' not in proprio_keys else None
+            self.one_hot = np.eye(len(self.TS))[0]
             
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
             
+            
+        
         super()._setup(obs_keys=obs_keys,
                        proprio_keys=proprio_keys,
                        weighted_reward_keys=weighted_reward_keys,
@@ -311,6 +319,7 @@ class EnvV0(env_base_0.MujocoEnv):
     def get_obs_dict(self, sim):
         obs_dict = {}
         obs_dict['time'] = np.array([self.sim.data.time])
+        obs_dict['encoding'] = np.array([self.one_hot])  # 1xlen(TS) -> 1-hot encoding
         obs_dict['qp_robot'] = sim.data.qpos[:sim.model.nu].copy()
         obs_dict['qv_robot'] = sim.data.qvel[:sim.model.nu].copy()
         obs_dict['prev_action'] = self.prev_action
@@ -432,7 +441,8 @@ class EnvV0(env_base_0.MujocoEnv):
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
         self.target_name = self.TN[number] 
-        self.target_site_name = self.TS[number] 
+        self.target_site_name = self.TS[number]
+        self.one_hot = np.eye(len(self.TS))[self.TS.index(self.target_site_name)]
         # print("target:", self.target_name)
         self.target_sid = self.sim.model.site_name2id(self.target_site_name)
         if self.condition_type == "object_image":
@@ -723,13 +733,12 @@ class EnvV0(env_base_0.MujocoEnv):
             _condition = self.object_image/255.
             rgb = cv.resize(rgb, [self._img_width, self._img_height], interpolation=cv.INTER_AREA)
             _condition = cv.resize(_condition, [self._img_width, self._img_height], interpolation=cv.INTER_AREA)
-        elif self.condition_type == "1hot":
-            # TODO: check how this one was used -> maybe not concatenated with the image_data but with the proprioceptive data
-            raise NotImplementedError(f"condition_type = 1hot is not impelemted")
+        elif self.condition_type == "one_hot":
+            _condition = None 
         else:
             _condition = np.expand_dims(self.current_mask, axis=-1)
         
-        self.current_image = np.concatenate((rgb, _condition), axis=2)
+        self.current_image = np.concatenate((rgb, _condition), axis=2) if _condition is not None else rgb
         return np.array(np.fliplr(np.flipud(rgb)))
 
     def render(self, mode='rgb_array'):

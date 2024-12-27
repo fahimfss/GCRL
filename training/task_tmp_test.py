@@ -27,7 +27,7 @@ parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img
 parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
 # parser.add_argument('--mask_delay_type', default='none', type=str)
 # parser.add_argument('--mask_delay_steps', default=1, type=int) 
-parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "1hot" 
+parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "one_hot" 
 parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
 parser.add_argument('--mask_delay_type', default='none', type=str)
 parser.add_argument('--mask_delay_steps', default=2, type=int) 

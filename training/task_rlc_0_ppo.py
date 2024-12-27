@@ -47,7 +47,7 @@ parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img
 parser.add_argument('--n_stack_frames', default=3, type=int) # TODO: refactor w/ image_history
 # parser.add_argument('--mask_delay_type', default='none', type=str)
 # parser.add_argument('--mask_delay_steps', default=1, type=int) 
-parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "1hot" 
+parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "one_hot" 
 parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
 parser.add_argument('--mask_delay_type', default='none', type=str)
 parser.add_argument('--mask_delay_steps', default=2, type=int) 
@@ -100,6 +100,7 @@ class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
         self.mlp = nn.Linear(observation_space.spaces['vector'].shape[0], 14)
         
         # Calculate the total concatenated feature dimension
+        # TODO: _features_dim this is not correct for object_image & 1hot -> and different configs
         self._features_dim = 24974 #observation_space.spaces['image'].shape[0]**2 + 16  # Adjust based on actual output dimensions of cnn and mlp
 
     def forward(self, observations):
