@@ -21,7 +21,7 @@ export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export WANDB_DIR=/home/hany606/scratch/rlc_ppo_sb3-$reward_mode-$mask_type-$condition_type/$condition_type/$condition_type/$condition_type/
+export WANDB_DIR=/home/hany606/scratch/rlc_ppo_sb3-$reward_mode-$mask_type-$condition_type/
 export PYTHONPATH=$PYTHONPATH:/home/hany606/repos/RLC/mj_envs
 export WANDB_MODE=offline
 

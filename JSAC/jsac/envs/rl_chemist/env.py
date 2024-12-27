@@ -38,8 +38,9 @@ class RLC_Env(gym.Wrapper):
                                         mask_delay_type=mask_delay_type,
                                         mask_delay_steps=mask_delay_steps,
                                         step_time=step_time,
+                                        reward_mode=reward_mode,
                                         _img_width=image_width,
-                                        _img_heigh=image_height,))
+                                        _img_height=image_height,))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}',
                                         env_mode=env_mode,
@@ -49,7 +50,7 @@ class RLC_Env(gym.Wrapper):
                                         mask_delay_steps=mask_delay_steps,
                                         reward_mode=reward_mode,
                                         _img_width=image_width,
-                                        _img_heigh=image_height,))
+                                        _img_height=image_height,))
 
         self._env_name = env_name
         self._image_history = image_history

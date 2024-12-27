@@ -14,7 +14,8 @@ cd /home/hany606/repos/RLC/training
 
 reward_mode="sparse"
 mask_type="ground_truth"
-condition_type="object_image"
+condition_type="one_hot"
+
 
 export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"

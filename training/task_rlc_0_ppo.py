@@ -86,7 +86,8 @@ class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
             n_channels = 4
         elif args.condition_type == "object_image":
             n_channels = 6
-        
+        elif args.condition_type == "one_hot":
+            n_channels = 3
         self.cnn = nn.Sequential(
             nn.Conv2d(n_channels*args.n_stack_frames, 32, kernel_size=8, stride=4, padding=2),  # Adjust padding to fit your needs
             nn.ReLU(),
@@ -100,7 +101,6 @@ class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
         self.mlp = nn.Linear(observation_space.spaces['vector'].shape[0], 14)
         
         # Calculate the total concatenated feature dimension
-        # TODO: _features_dim this is not correct for object_image & 1hot -> and different configs
         self._features_dim = 24974 #observation_space.spaces['image'].shape[0]**2 + 16  # Adjust based on actual output dimensions of cnn and mlp
 
     def forward(self, observations):

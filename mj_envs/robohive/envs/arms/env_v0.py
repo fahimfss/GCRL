@@ -224,20 +224,15 @@ class EnvV0(env_base_0.MujocoEnv):
                 'mask_size': 0.,
                 'done': 5.,
             }
-        # TODO:
         elif reward_mode == "sparse":
-            raise NotImplementedError("self.mask_type == object_image is not implemented")
-        #     weighted_reward_keys = {
-        #         'distance': 0., 
-        #         'contact': 1.,
-        #         'penalty': 0.,
-        #         'mask_size': 0.,
-        #         # 'sparse': 0,
-        #         # 'solved': 10,
-        #         'done': 100.,
-        #         # 'done': 100,
-        #     }
-        # else:
+            weighted_reward_keys = {
+                'distance': 0., 
+                'contact': 1.,
+                'penalty': 0.,
+                'mask_size': 0.,
+                'solved': 10,
+                'done': 100.,
+            }
         elif reward_mode == "mask_size":
             weighted_reward_keys = {
                 'distance': 0., 
@@ -257,7 +252,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
         self.target_site_name = self.TS[0]
-        
+        self.one_hot = np.eye(len(self.TS))[0]
         if 'target_obj_num' in kwargs:
             self.target_obj_num = kwargs['target_obj_num'] 
             kwargs.pop('target_obj_num')
@@ -300,8 +295,7 @@ class EnvV0(env_base_0.MujocoEnv):
         elif self.condition_type == "one_hot":
             obs_keys.append('encoding') if 'encoding' not in obs_keys else None
             proprio_keys.append('encoding') if 'encoding' not in proprio_keys else None
-            self.one_hot = np.eye(len(self.TS))[0]
-            
+        
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
             

@@ -12,9 +12,10 @@ source /home/hany606/envs/RLCENV/bin/activate
 
 cd /home/hany606/repos/RLC/training
 
-reward_mode="sparse"
+reward_mode="mask_size"
 mask_type="ground_truth"
-condition_type="object_image"
+condition_type="one_hot"
+
 
 export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"
