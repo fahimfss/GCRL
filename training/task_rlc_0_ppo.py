@@ -1,11 +1,8 @@
 # import gym
 import gymnasium as gym
-
 import os
 from gymnasium import spaces
 from PIL import Image
-import cv2
-import torchvision.transforms as transforms
 import torch 
 import random
 import torch.nn as nn

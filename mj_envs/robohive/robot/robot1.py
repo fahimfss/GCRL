@@ -676,56 +676,24 @@ class Robot():
         return processed_controls
 
 
-    # # step the robot one step forward in time
-    # def step(self, ctrl_desired, last_qpos, dt, render_cbk=None):
-    #     """
-    #     Apply controls and step forward in time
-    #     INPUTS:
-    #         ctrl_desired:       Desired control to be applied(sim_space)
-    #         step_duration:      Step duration (seconds)
-    #         ctrl_normalized:    is the ctrl normalized to [-1, 1]
-    #         realTimeSim:        run simulate real world speed via sim
-    #     """
-    #     control = (self.robot_vel_bound[:self.sim.model.nu, 1]+self.robot_vel_bound[:self.sim.model.nu, 0])/2.0 + \
-    #                                     ctrl_desired*(self.robot_vel_bound[:self.sim.model.nu, 1]-self.robot_vel_bound[:self.sim.model.nu, 0])/2.0
-    #     control = last_qpos[:self.sim.model.nu] + control*dt
-    #     ctrl_feasible = np.clip(control, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1])
-
-    #     n_frames=int(dt/self.sim.step_duration)
-    #     self.sim.data.ctrl[:] = ctrl_feasible
-    #     self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
-    #     return ctrl_feasible
-
+    # step the robot one step forward in time
     def step(self, ctrl_desired, last_qpos, dt, render_cbk=None):
         """
-            Apply controls and step forward in time with velocity noise and multi-step simulation
-            INPUTS:
-                ctrl_desired:       Desired control to be applied(sim_space)
-                last_qpos:         Last joint positions
-                dt:                Step duration (seconds)
-                render_cbk:        Render callback function
+        Apply controls and step forward in time
+        INPUTS:
+            ctrl_desired:       Desired control to be applied(sim_space)
+            step_duration:      Step duration (seconds)
+            ctrl_normalized:    is the ctrl normalized to [-1, 1]
+            realTimeSim:        run simulate real world speed via sim
         """
-        vel_noise = self.np_random.uniform(-1.0, 1.0, size=ctrl_desired.shape) * self.robot_vel_noise_amp[:self.sim.model.nu]
-        ctrl_with_noise = ctrl_desired + vel_noise
-        
-        control = (self.robot_vel_bound[:self.sim.model.nu, 1] + self.robot_vel_bound[:self.sim.model.nu, 0])/2.0 + \
-                    ctrl_with_noise * (self.robot_vel_bound[:self.sim.model.nu, 1] - self.robot_vel_bound[:self.sim.model.nu, 0])/2.0
-                    
-        control = last_qpos[:self.sim.model.nu] + control * dt
-        
+        control = (self.robot_vel_bound[:self.sim.model.nu, 1]+self.robot_vel_bound[:self.sim.model.nu, 0])/2.0 + \
+                                        ctrl_desired*(self.robot_vel_bound[:self.sim.model.nu, 1]-self.robot_vel_bound[:self.sim.model.nu, 0])/2.0
+        control = last_qpos[:self.sim.model.nu] + control*dt
         ctrl_feasible = np.clip(control, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1])
-        
-        # print('mj_envs/robohive/robot/robot1.py ctrl_feasible: ', ctrl_desired, ctrl_feasible)
-        
-        self.sim.data.ctrl[:] = ctrl_feasible
-        
-        # n_frames=int(dt/self.sim.step_duration)
-        # self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
 
-        # n_frames = int(dt/self.sim.step_duration)
-        self.sim.advance(substeps=40, render=False)
-        self.sim.advance(substeps=1, render=(render_cbk is not None))
-        
+        n_frames=int(dt/self.sim.step_duration)
+        self.sim.data.ctrl[:] = ctrl_feasible
+        self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
         return ctrl_feasible
     
     def _ctrl_velocity_limits(self, ctrl_velocity: np.ndarray, last_robot_qpos, dt):
@@ -778,7 +746,7 @@ class Robot():
         self.robot_vel_noise_amp = np.zeros(self.sim.model.nu, dtype=float)
 
         #print(self.robot_pos_bound)
-        for i in range(self.sim.model.nu):
+        for i in range(7):
             self.robot_pos_bound[i] = read_config_from_node(
                 root, "qpos" + str(i), "pos_bound", float
             )
@@ -791,14 +759,13 @@ class Robot():
             self.robot_vel_noise_amp[i] = read_config_from_node(
                 root, "qpos" + str(i), "vel_noise_amp", float
             )[0]
-            
 
     # Reset the robot
     def reset(self,
               reset_pos,
               reset_vel,
               blocking = True,
-              seed=0, # to be compatible w/ sb3 for some reason (TODO: check it later)
+              seed=0, # To adjust with sb3 env
               ):
 
         prompt("Resetting {}".format(self.name), 'white', 'on_grey', flush=True)

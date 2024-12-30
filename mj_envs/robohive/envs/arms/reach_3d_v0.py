@@ -420,7 +420,7 @@ class ReachBaseV0(env_base.MujocoEnv):
             self.restore_state()
     
         self.object_image_normalized = self.object_image / 255
-        self.final_image = np.concatenate((self.current_image, self.object_image_normalized), axis=2) # channels are 6
+        self.final_image = np.concatenate((self.current_image, self.object_image_normalized), axis=2)
 
         return self.forward(self.final_image, **kwargs)
     

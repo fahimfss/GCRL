@@ -7,7 +7,7 @@ License :: Under Apache License, Version 2.0 (the "License"); you may not use th
 
 import gymnasium as gym
 import numpy as np
-import mujoco
+import os
 import time as timer
 
 from robohive.envs.obs_vec_dict import ObsVecDict
@@ -18,6 +18,8 @@ import skvideo.io
 from sys import platform
 from robohive.physics.sim_scene import SimScene
 import robohive.utils.import_utils as import_utils
+
+import mujoco
 
 # TODO
 # remove rwd_mode
@@ -64,11 +66,11 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
                 
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
-        if 'franka' in model_path:
-            # load model key before hand
-            default_kf = self.model.keyframe("default")
-            self.data.qpos = default_kf.qpos.copy()
-            self.data.ctrl = default_kf.ctrl.copy()
+        # load model key before hand
+        default_kf = self.model.keyframe("default")
+        self.data.qpos = default_kf.qpos.copy()
+        self.data.ctrl = default_kf.ctrl.copy()
+
 
 
     def _setup(self,
@@ -142,13 +144,17 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         self._setup_rgb_encoders(self.visual_keys, device=None)
 
         # reset to get the env ready
+
         observation, _reward, done, _, _info = self.step(np.zeros(self.sim.model.nu))
+        print("----------------")
+        print(observation['image'].shape)
+        print("----------------")
         # Question: Should we replace above with following? Its specially helpful for hardware as it forces a env reset before continuing, without which the hardware will make a big jump from its position to the position asked by step.
         # observation = self.reset()
         assert not done, "Check initialization. Simulation starts in a done state."
         self.observation_space = gym.spaces.Dict({
-            'image': gym.spaces.Box(low=0, high=255, shape=(224, 224, 4), dtype=np.uint8),  # Use np.float32 here
-            'vector': gym.spaces.Box(obs_range[0]*np.ones(15), obs_range[1]*np.ones(15), dtype=np.float32)  # Ensure consistency in dtype usage
+            'image': gym.spaces.Box(low=0, high=255, shape=observation['image'].shape, dtype=np.uint8),  # Use np.float32 here
+            'vector': gym.spaces.Box(obs_range[0]*np.ones(len(observation['vector'])), obs_range[1]*np.ones(len(observation['vector'])), dtype=np.float32)  # Ensure consistency in dtype usage
         })
         
         #self.observation_space = gym.spaces.Box(obs_range[0]*np.ones(observation.size), obs_range[1]*np.ones(observation.size), dtype=np.float32)
@@ -468,43 +474,21 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         else:
             visual_dict = {}
 
-        if self.gdino_step == 0:
-            env_info = {
-                'time': self.obs_dict['time'][()],          # MDP(t)
-                'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
-                # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
-                # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
-                'done': self.rwd_dict['done'][()],          # MDP(t)
-                'obs_dict': self.obs_dict,                  # MDP(t)
-                'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
-                'proprio_dict': self.proprio_dict,          # MDP(t)
-                'rwd_dict': self.rwd_dict,                  # MDP(t)
-                'state': self.get_env_state(),              # MDP(t)
-                'x': self.target_x,
-                'y': self.target_y,
-                'prompt': self.target_name,
-                'reach_err': self.obs_dict['reach_err']
-            }
-        else:
-            env_info = {
-                'time': self.obs_dict['time'][()],          # MDP(t)
-                'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
-                # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
-                # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
-                'done': self.rwd_dict['done'][()],          # MDP(t)
-                'obs_dict': self.obs_dict,                  # MDP(t)
-                'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
-                'proprio_dict': self.proprio_dict,          # MDP(t)
-                'rwd_dict': self.rwd_dict,                  # MDP(t)
-                'state': self.get_env_state(),              # MDP(t)
-                'x': self.target_x,
-                'y': self.target_y,
-                'prompt': self.target_name,
-                'reach_err': self.obs_dict['reach_err'],
-                'gdino_step':self.gdino_step,
-                'gdino_time':self.gdino_time,
-                'gdino_accuracy':self.gdino_accuracy
-            }
+        env_info = {
+            'time': self.obs_dict['time'][()],          # MDP(t)
+            'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
+            # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
+            # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
+            'done': self.rwd_dict['done'][()],          # MDP(t)
+            'obs_dict': self.obs_dict,                  # MDP(t)
+            'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
+            'proprio_dict': self.proprio_dict,          # MDP(t)
+            'rwd_dict': self.rwd_dict,                  # MDP(t)
+            'state': self.get_env_state(),              # MDP(t)
+            'x': self.target_x,
+            'y': self.target_y,
+            'prompt': self.target_name,
+        }
         return env_info
 
 

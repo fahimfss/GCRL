@@ -26,7 +26,6 @@ register(
     }
 )
 
-# Reach to fixed target
 register(
     id='FrankaEnv-v0',
     entry_point='robohive.envs.arms.env_v0:EnvV0',
@@ -36,21 +35,28 @@ register(
     }
 )
 
+# env_v0_debug -> get the env_v0.py file only from the new branch, the rest of mj_envs is from the old branch
+register(
+    id='UR10eEnv-debug-v0',
+    entry_point='robohive.envs.arms.env_v0_debug:EnvV0',
+    # max_episode_steps=200, 
+    kwargs={
+        'model_path': curr_dir+'/ur10e/scene_eight.xml', 
+        'robot_site_name': "pinch"    
+    }
+)
 
+# Reach to fixed target
+register(
+    id='FrankaEnv-debug-v0',
+    entry_point='robohive.envs.arms.env_v0_debug:EnvV0',
+    kwargs={
+        'model_path': curr_dir+'/franka/scene_eight.xml',
+        'robot_site_name': "end_effector",
+    }
+)
 
-# # Reach to fixed target
-# register(
-#     id='FrankaReachFixed-v0',
-#     entry_point='robohive.envs.arms.reach_base_v0:ReachBaseV0',
-#     max_episode_steps=50, #50steps*40Skip*2ms = 4s
-#     kwargs={
-#         'model_path': curr_dir+'/franka/assets/franka_reach_v0.xml',
-#         'config_path': curr_dir+'/franka/assets/franka_reach_v0.config',
-#         'robot_site_name': "end_effector",
-#         'target_site_name': "target",
-#         'target_xyz_range': {'high':[0.2, 0.3, 1.2], 'low':[0.2, 0.3, 1.2]}
-#     }
-# )
+# Reach to fixed target
 
 # # reach_base_v1 is env with five object but distance based reward
 # # reach_base_v2 is the env with pick & place
