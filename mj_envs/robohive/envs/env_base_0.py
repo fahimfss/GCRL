@@ -64,10 +64,11 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
                 
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
-        # load model key before hand
-        default_kf = self.model.keyframe("default")
-        self.data.qpos = default_kf.qpos.copy()
-        self.data.ctrl = default_kf.ctrl.copy()
+        if 'franka' in model_path:
+            # load model key before hand
+            default_kf = self.model.keyframe("default")
+            self.data.qpos = default_kf.qpos.copy()
+            self.data.ctrl = default_kf.ctrl.copy()
 
 
     def _setup(self,

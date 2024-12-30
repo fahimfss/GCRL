@@ -2,7 +2,7 @@
 #SBATCH --account=def-ashique
 #SBATCH --cpus-per-task=4
 #SBATCH --array=2,3,4,5
-#SBATCH --time=0-23:30
+#SBATCH --time=0-40:30
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=baseline
@@ -12,10 +12,10 @@ source /home/hany606/envs/RLCENV/bin/activate
 
 cd /home/hany606/repos/RLC/training
 
-reward_mode="mask_size"
+reward_mode="sparse"
 mask_type="ground_truth"
 condition_type="object_image"
-env_name="FrankaEnv-v0"
+env_name="UR10eEnv-v0"
 
 export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"

@@ -15,16 +15,17 @@ cd /home/hany606/repos/RLC/training
 reward_mode="mask_size"
 mask_type="gdino_sync"
 condition_type="mask"
+env_name="FrankaEnv-v0"
 
 export MUJOCO_GL="egl"
 export PYOPENGL_PLATFORM="egl"
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export WANDB_DIR=/home/hany606/scratch/rlc_ppo_sb3-$reward_mode-$mask_type-$condition_type/
+export WANDB_DIR=/home/hany606/scratch/rlc_ppo_sb3-$reward_mode-$mask_type-$condition_type-$env_name/
 export PYTHONPATH=$PYTHONPATH:/home/hany606/repos/RLC/mj_envs
 export WANDB_MODE=offline
 
 
 
 
-python task_rlc_0_ppo.py --env_name=FrankaEnv-v0 --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type-$condition_type --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID  --reward_mode=$reward_mode --mask_type=$mask_type --condition_type=$condition_type
+python task_rlc_0_ppo.py --env_name=$env_name --num_envs=4 --group=ppo-sb3-$reward_mode-$mask_type-$condition_type-$env_name --logdir=$WANDB_DIR --seed=$SLURM_ARRAY_TASK_ID  --reward_mode=$reward_mode --mask_type=$mask_type --condition_type=$condition_type

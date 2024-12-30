@@ -719,8 +719,11 @@ class Robot():
         
         self.sim.data.ctrl[:] = ctrl_feasible
         
+        # n_frames=int(dt/self.sim.step_duration)
+        # self.sim.advance(substeps=n_frames, render=(render_cbk!=None))
+
         # n_frames = int(dt/self.sim.step_duration)
-        self.sim.advance(substeps=200, render=False)
+        self.sim.advance(substeps=40, render=False)
         self.sim.advance(substeps=1, render=(render_cbk is not None))
         
         return ctrl_feasible
