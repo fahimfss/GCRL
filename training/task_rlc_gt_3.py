@@ -41,22 +41,21 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
-    # parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gdino_async_franka', type=str)
+    parser.add_argument('--task_name', default='gt_3', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async"
-    parser.add_argument('--step_time', default=0.1, type=float) 
-    parser.add_argument('--mask_delay_type', default='none', type=str)
-    parser.add_argument('--mask_delay_steps', default=2, type=int) 
+    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+    parser.add_argument('--step_time', default=0.0, type=float) 
+    parser.add_argument('--mask_delay_type', default='n_step', type=str)  # "none", "n_step", "sequential"
+    parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=500_000, type=int)
+    parser.add_argument('--env_steps', default=300_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -94,7 +93,7 @@ def parse_args():
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
     parser.add_argument('--save_model', default=True, action='store_true')
-    parser.add_argument('--save_model_freq', default=500_000, type=int)
+    parser.add_argument('--save_model_freq', default=100_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
@@ -178,7 +177,8 @@ def main(seed=-1, env_name=None):
                    mask_type=args.mask_type,
                    mask_delay_type=args.mask_delay_type,
                    mask_delay_steps=args.mask_delay_steps,
-                   step_time=step_time)
+                   step_time=step_time,
+                   video_path='/home/fahim/project/RLC/training/videos')
     env = WrappedEnv(env, 200)
 
     set_seed_everywhere(seed=args.seed)
@@ -216,7 +216,7 @@ def main(seed=-1, env_name=None):
                                             False)
 
     update_paused = True
-    time.sleep(30)
+    time.sleep(5)
     state = env.reset(create_vid=True)
     
     first_step = True

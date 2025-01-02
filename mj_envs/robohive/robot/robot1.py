@@ -715,12 +715,10 @@ class Robot():
         
         ctrl_feasible = np.clip(control, self.robot_pos_bound[:self.sim.model.nu, 0], self.robot_pos_bound[:self.sim.model.nu, 1])
         
-        # print('mj_envs/robohive/robot/robot1.py ctrl_feasible: ', ctrl_desired, ctrl_feasible)
-        
         self.sim.data.ctrl[:] = ctrl_feasible
         
         # n_frames = int(dt/self.sim.step_duration)
-        self.sim.advance(substeps=200, render=False)
+        self.sim.advance(substeps=40, render=False)
         self.sim.advance(substeps=1, render=(render_cbk is not None))
         
         return ctrl_feasible

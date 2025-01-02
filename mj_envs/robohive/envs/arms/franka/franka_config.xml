@@ -7,6 +7,6 @@
 	<qpos4 name='q4' pos_bound='-2.8065 2.8065' vel_bound='-5.26 5.26' pos_noise_amp='0.02' vel_noise_amp='0.02' />
 	<qpos5 name='q5' pos_bound='0.5445 4.5169' vel_bound='-4.18 4.18' pos_noise_amp='0.02' vel_noise_amp='0.02' />
 	<qpos6 name='q6' pos_bound='-3.0159 3.0159' vel_bound='-5.26 5.26' pos_noise_amp='0.02' vel_noise_amp='0.02' />
-	<qpos7 name='q7' pos_bound='0.0 255.0' vel_bound='-128.0 128.0' pos_noise_amp='0.02' vel_noise_amp='0.02' />
+	<qpos7 name='q7' pos_bound='0.0 255.0' vel_bound='-512.0 512.0' pos_noise_amp='0.02' vel_noise_amp='0.02' />
 
 </config>

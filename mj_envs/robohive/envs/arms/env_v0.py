@@ -149,6 +149,10 @@ class EnvV0(env_base_0.MujocoEnv):
     def __init__(self, model_path, obsd_model_path=None, seed=None, **kwargs):
         gym.utils.EzPickle.__init__(self, model_path, obsd_model_path, seed, **kwargs)
         super().__init__(model_path=model_path, obsd_model_path=obsd_model_path, seed=seed)
+        if 'franka' in model_path:
+            self.robot_name = 'franka'
+        else:
+            self.robot_name = 'ur10'
         self._setup(**kwargs)
 
 
@@ -167,7 +171,7 @@ class EnvV0(env_base_0.MujocoEnv):
                **kwargs,
         ):
 
-        # ids
+        # ids 
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
         self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
         self.IMAGE_WIDTH = image_width
@@ -548,8 +552,13 @@ class EnvV0(env_base_0.MujocoEnv):
         else:
             a = np.clip(a, self.action_space.low, self.action_space.high)
             self.fixed_positions = None
+
+            last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
+            if self.robot_name == 'franka' and hasattr(self, 'last_ctrl'):
+                last_pos[-1] = self.last_ctrl[-1]
+                
             self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = self.sim.data.qpos[:self.sim.model.nu].copy(),
+                                        last_qpos = last_pos,
                                         dt = self.dt,
                                         render_cbk=self.mj_render if self.mujoco_render_frames else None)
 
