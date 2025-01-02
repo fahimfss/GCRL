@@ -26,40 +26,6 @@ from wandb.integration.sb3 import WandbCallback
 import multiprocessing as mp
 
 import numpy as np
-import argparse
-parser = argparse.ArgumentParser(description="Main script to train an agent")
-
-parser.add_argument("--seed", type=int, default=0, help="Seed for random number generator")
-parser.add_argument("--num_envs", type=int, default=1, help="Number of parallel environments")
-parser.add_argument("--env_name", type=str, default='N/A', help="environment name")
-parser.add_argument("--group", type=str, default='testing', help="environment name")
-parser.add_argument("--learning_rate", type=float, default=0.0003, help="Learning rate for the optimizer")
-parser.add_argument("--clip_range", type=float, default=0.2, help="Clip range for the policy gradient update")
-parser.add_argument('--task_name', default='baseline', type=str)
-
-parser.add_argument('--image_height', default=120, type=int)     # Mode: img, img_prop
-parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
-# parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
-parser.add_argument('--n_stack_frames', default=3, type=int) # TODO: refactor w/ image_history
-# parser.add_argument('--mask_delay_type', default='none', type=str)
-# parser.add_argument('--mask_delay_steps', default=1, type=int) 
-parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "one_hot" 
-parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
-parser.add_argument('--mask_delay_type', default='none', type=str)
-parser.add_argument('--mask_delay_steps', default=2, type=int) 
-parser.add_argument('--reward_mode', default='distance', type=str)
-parser.add_argument('--step_time', default=0.05, type=float)
-
-parser.add_argument('--max_time_steps', default=250, type=int)
-
-
-
-parser.add_argument('--logdir', default='/home/hany606/scratch/rlc_ppo_results/', type=str)
-
-
-
-args = parser.parse_args()
 
 class TensorboardCallback(BaseCallback):
     """
@@ -76,17 +42,17 @@ class TensorboardCallback(BaseCallback):
         return True
 
 class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space, features_dim=1024):  # Adjust features_dim if needed
+    def __init__(self, observation_space, features_dim=1024, **kwargs):  # Adjust features_dim if needed
         super(CustomDictFeaturesExtractor, self).__init__(observation_space, features_dim)
         # TODO: get it from the environment better
-        if args.condition_type == "mask":
+        if kwargs['condition_type'] == "mask":
             n_channels = 4
-        elif args.condition_type == "object_image":
+        elif kwargs['condition_type'] == "object_image":
             n_channels = 6
-        elif args.condition_type == "one_hot":
+        elif kwargs['condition_type'] == "one_hot":
             n_channels = 3
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_channels*args.n_stack_frames, 32, kernel_size=8, stride=4, padding=2),  # Adjust padding to fit your needs
+            nn.Conv2d(n_channels*kwargs['n_stack_frames'], 32, kernel_size=8, stride=4, padding=2),  # Adjust padding to fit your needs
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
             nn.ReLU(),
@@ -110,9 +76,12 @@ class CustomDictFeaturesExtractor(BaseFeaturesExtractor):
 
 class CustomMultiInputPolicy(ActorCriticPolicy):
     def __init__(self, *args, **kwargs):
+        # default are selected to make it not work properly if not passed correctly
+        n_stack_frames = kwargs.pop('n_stack_frames', -1)
+        condition_type = kwargs.pop('condition_type', 'NA')
         super(CustomMultiInputPolicy, self).__init__(*args, **kwargs,
                                                      features_extractor_class=CustomDictFeaturesExtractor,
-                                                     features_extractor_kwargs={},
+                                                     features_extractor_kwargs={'n_stack_frames': n_stack_frames, 'condition_type': condition_type},
                                                      net_arch=[{'vf': [512, 512], 'pi': [512, 512]}])  # Adjust architecture if needed
 
       
@@ -190,32 +159,16 @@ class TimeLimitWrapper(gym.Wrapper):
         return obs, reward, done, truncated, info
 
 
-def make_env(env_name, idx, seed=0, eval_mode=False):
-    def _init():
-        from collections import OrderedDict
-        # We are using a single frame
-        env_kwargs = OrderedDict(
-                    image_width=args.image_width, 
-                    image_height=args.image_height,
-                    # image_history=args.image_history,  # this is useless here as I am not using the UnifiedEnv class
-                    # mask_delay_type=args.mask_delay_type, # this is useless here 
-                    # mask_delay_steps=args.mask_delay_steps, # this is useless here 
-        )
-        env = gym.make(f'robohive.envs:{env_name}', eval_mode=eval_mode, **env_kwargs)
-        env.seed(seed + idx)
-        env = WrapperReset(env)
-        env = TimeLimitWrapper(env, max_time_steps=args.max_time_steps)
-        return env
-    # return _init
+def make_env(args, env_name, idx, seed=0, env_mode='train'):
+    # TODO: no interface for seed for the environment
     def _init_jsac():
-        env_mode = 'train' if not eval_mode else 'eval'
         step_time = None
         if args.step_time > 0:
             step_time = args.step_time
 
         from jsac.envs.rl_chemist.env import RLC_Env
         # We are using a single frame
-        env = RLC_Env(args.env_name, 
+        env = RLC_Env(env_name, 
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
@@ -234,7 +187,7 @@ def make_env(env_name, idx, seed=0, eval_mode=False):
     return _init_jsac
 
 
-def main():
+def main(args):
     training_steps = 3500000
     env_name = args.env_name
     start_time = time.time()
@@ -263,7 +216,7 @@ def main():
 
     num_cpu = args.num_envs
 
-    env = DummyVecEnv([make_env(env_name, i, seed=args.seed) for i in range(num_cpu)])
+    env = DummyVecEnv([make_env(args, env_name, i, seed=args.seed) for i in range(num_cpu)])
     env.render_mode = 'rgb_array'
 
     envs = VecVideoRecorder(env, video_log_path, record_video_trigger=lambda x: x % 2000 == 0, video_length=250)
@@ -271,7 +224,7 @@ def main():
     envs = VecFrameStack(envs, n_stack=args.n_stack_frames)
 
     ## EVAL
-    eval_env = DummyVecEnv([make_env(env_name, i, seed=args.seed, eval_mode=True) for i in range(1)])
+    eval_env = DummyVecEnv([make_env(args, env_name, i, seed=args.seed, env_mode='eval') for i in range(1)])
     eval_env.render_mode = 'rgb_array'
     eval_envs = VecFrameStack(eval_env, n_stack=args.n_stack_frames)
     
@@ -283,7 +236,7 @@ def main():
 
     # Create a model using the vectorized environment
     #model = SAC("MultiInputPolicy", envs, buffer_size=1000, verbose=0)
-    model = PPO(CustomMultiInputPolicy, envs, ent_coef=ENTROPY, learning_rate=LR, clip_range=CR, n_steps = 1024, batch_size = 64, verbose=0, tensorboard_log=tensorboard_log_path)
+    model = PPO(CustomMultiInputPolicy, envs, ent_coef=ENTROPY, learning_rate=LR, clip_range=CR, n_steps = 1024, batch_size = 64, verbose=0, tensorboard_log=tensorboard_log_path, policy_kwargs={'n_stack_frames':args.n_stack_frames, 'condition_type':args.condition_type})
     #model = PPO.load(r"./Reach_Target_vel/policy_best_model/" + env_name + '/' + loaded_model + '/best_model', envs, verbose=1, tensorboard_log=f"runs/{time_now}")
     
     try:
@@ -358,5 +311,37 @@ def main():
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
+    import argparse
+    parser = argparse.ArgumentParser(description="Main script to train an agent")
+
+    parser.add_argument("--seed", type=int, default=0, help="Seed for random number generator")
+    parser.add_argument("--num_envs", type=int, default=1, help="Number of parallel environments")
+    parser.add_argument("--env_name", type=str, default='N/A', help="environment name")
+    parser.add_argument("--group", type=str, default='testing', help="environment name")
+    parser.add_argument("--learning_rate", type=float, default=0.0003, help="Learning rate for the optimizer")
+    parser.add_argument("--clip_range", type=float, default=0.2, help="Clip range for the policy gradient update")
+    parser.add_argument('--task_name', default='baseline', type=str)
+
+    parser.add_argument('--image_height', default=120, type=int)     # Mode: img, img_prop
+    parser.add_argument('--image_width', default=212, type=int)     # Mode: img, img_prop     
+    # parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
+    parser.add_argument('--image_history', default=1, type=int)     # Mode: img, img_prop
+    parser.add_argument('--n_stack_frames', default=3, type=int) # TODO: refactor w/ image_history
+    # parser.add_argument('--mask_delay_type', default='none', type=str)
+    # parser.add_argument('--mask_delay_steps', default=1, type=int) 
+    parser.add_argument('--condition_type', default='mask', type=str) # "mask", "object_image", "one_hot" 
+    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
+    parser.add_argument('--mask_delay_type', default='none', type=str)
+    parser.add_argument('--mask_delay_steps', default=2, type=int) 
+    parser.add_argument('--reward_mode', default='distance', type=str)
+    parser.add_argument('--step_time', default=0.05, type=float)
+
+    parser.add_argument('--max_time_steps', default=250, type=int)
+
+    parser.add_argument('--logdir', default='/home/hany606/scratch/rlc_ppo_results/', type=str)
+
+
+
+    args = parser.parse_args()
     # TRAIN
-    main()
+    main(args)

@@ -1,3 +1,4 @@
+# env_v0 from the main branch
 # TODO: refactor due to condition_type
 # condition_type -> it can be object_image but still, we are using gdino or gt to compute the mask similar to Mask-3C-GT environment in ICLR submission
 import os

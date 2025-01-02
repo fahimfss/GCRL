@@ -35,7 +35,7 @@ register(
     }
 )
 
-# env_v0_debug -> get the env_v0.py file only from the new branch, the rest of mj_envs is from the old branch
+# env_v0_debug -> get the env_v0.py file only from the main branch, the rest of mj_envs is from the old branch
 register(
     id='UR10eEnv-debug-v0',
     entry_point='robohive.envs.arms.env_v0_debug:EnvV0',
