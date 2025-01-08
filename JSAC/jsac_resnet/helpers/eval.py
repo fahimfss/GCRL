@@ -48,7 +48,7 @@ def eval(args, log_dir, eval_queue, num_eval_episodes):
                           args['image_height'], 
                           eval_mode=True,
                           video_path=args['video_dir'])
-        env = WrappedEnv(env, 200)
+        env = WrappedEnv(env, 150)
         
     env_steps = int(args['env_steps'])
     

@@ -20,7 +20,7 @@ from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, Ob
 from groundingdino.util.inference import load_model, predict
 
 
-BOX_THRESHOLD = 0.40
+BOX_THRESHOLD = 0.55
 TEXT_THRESHOLD = 0.25
 
 def load_image(image_source: torch.Tensor, image_size: int):
@@ -158,9 +158,9 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               image_width=848,
+               image_width=640,
                image_height=480,
-               frame_skip = 20, 
+               frame_skip = 25, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
                mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
@@ -196,6 +196,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.distance = 1.0
         self.TM = time.time()
         self.prev_action = np.array([0] * self.sim.model.nu)
+        self.action_scale = 1.0
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -332,12 +333,15 @@ class EnvV0(env_base_0.MujocoEnv):
             ('mask_size',  mask_size_reward),
             ('done', contact == 2),  
         )) 
+        
+        rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
+        rwd_dict['dense'] = False
          
-        if self.env_mode == "train":
-            rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
-        else:
-            rwd_dict['dense'] = 1.0 if contact == 2 else 0
-            rwd_dict['done'] = contact == 2
+        # if self.env_mode == "train":
+        #     rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
+        # else:
+        #     rwd_dict['dense'] = 1.0 if contact == 2 else 0
+        #     rwd_dict['done'] = contact == 2
         
         return rwd_dict
     
@@ -371,6 +375,10 @@ class EnvV0(env_base_0.MujocoEnv):
         self.distance = 1.0
         self.gs = 0
         self.single_touch = 0
+        
+        if 'action_scale' in kwargs:
+            self.action_scale = kwargs['action_scale']
+            kwargs.pop('action_scale')
 
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
@@ -537,6 +545,7 @@ class EnvV0(env_base_0.MujocoEnv):
         change control method here if needed 
         """
         self.save_state()
+        a = a * self.action_scale
         self.prev_action = a
  
         if self.single_touch >= 1000:

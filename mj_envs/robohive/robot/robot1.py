@@ -705,6 +705,7 @@ class Robot():
                 dt:                Step duration (seconds)
                 render_cbk:        Render callback function
         """
+        
         vel_noise = self.np_random.uniform(-1.0, 1.0, size=ctrl_desired.shape) * self.robot_vel_noise_amp[:self.sim.model.nu]
         ctrl_with_noise = ctrl_desired + vel_noise
         
@@ -718,7 +719,7 @@ class Robot():
         self.sim.data.ctrl[:] = ctrl_feasible
         
         # n_frames = int(dt/self.sim.step_duration)
-        self.sim.advance(substeps=40, render=False)
+        self.sim.advance(substeps=50, render=False)
         self.sim.advance(substeps=1, render=(render_cbk is not None))
         
         return ctrl_feasible
