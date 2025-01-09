@@ -69,7 +69,7 @@ class ReplayBuffer():
             self._total_aug_imgs = self._aug_imgs.shape[0]
             self._aug_img_index = 0
             aug_intensity = [0.0, 0.05, 0.1, 0.15, 0.2]
-            shape = (90, 159, 12)
+            shape = image_shape
             self._aug_masks = []
             active_channels = [0, 1, 2, 4, 5, 6, 8, 9, 10] 
             

@@ -197,6 +197,8 @@ class EnvV0(env_base_0.MujocoEnv):
         self.TM = time.time()
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.action_scale = 1.0
+        self.roi_no = 0
+        self.rois = [(.3, .7, .4, .75), (.25, .75, .35, .8)]
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -249,7 +251,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_name = "apple"
         
         self.TS = ['object_1',  'object_2',    'object_3',          'object_4',        'object_5',        'object_6',        'object_7',     'object_8']
-        self.TN = ['red apple', 'green block', 'baked brown donut', 'glass flask jar', 'yellow toy duck', 'yellow banana',   'purple clock', 'cup'     ]
+        self.TN = ['red apple', 'green block', 'round donut', 'glass flask jar', 'yellow duck toy', 'yellow banana',   'purple clock', 'cup'     ]
         # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
@@ -335,7 +337,7 @@ class EnvV0(env_base_0.MujocoEnv):
         )) 
         
         rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
-        rwd_dict['dense'] = False
+        rwd_dict['done'] = False
          
         # if self.env_mode == "train":
         #     rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
@@ -379,6 +381,9 @@ class EnvV0(env_base_0.MujocoEnv):
         if 'action_scale' in kwargs:
             self.action_scale = kwargs['action_scale']
             kwargs.pop('action_scale')
+        if 'roi' in kwargs:
+            self.roi_no = kwargs['roi']
+            kwargs.pop('roi')
 
         if self.mask_delay_type == "n_step":
             self.mask_step = -1
@@ -686,8 +691,9 @@ class EnvV0(env_base_0.MujocoEnv):
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time, "  target: ", gt_center)
             
         #define the grasping rectangle
-        x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
+        r1, r2, r3, r4 = self.rois[self.roi_no]
+        x1, x2 = int(self.IMAGE_WIDTH * r1), int(self.IMAGE_WIDTH * r2)
+        y1, y2 = int(self.IMAGE_HEIGHT * r3), int(self.IMAGE_HEIGHT * r4)
         
         # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
         
@@ -796,7 +802,7 @@ class EnvV0(env_base_0.MujocoEnv):
         return np.round(x).astype(int), np.round(y).astype(int)
     
     def calculate_img_reward(self, perc):        
-        return (2.0/(1+np.exp(-perc*10.0))) - 1.0 
+        return (2.0/(1+np.exp(-perc*8.0))) - 1.0 
     
     def close(self):
         self.image_queue.put("close")

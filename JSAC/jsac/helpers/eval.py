@@ -57,15 +57,17 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                           args['image_width'], 
                           args['image_height'],  
                           mask_type=args['mask_type'],
+                          mask_delay_type=args['mask_delay_type'], 
+                          mask_delay_steps=args['mask_delay_steps'],
                           env_mode=env_mode,
                           video_path=args['video_dir'],
                           step_time=step_time)
-        env = WrappedEnv(env, 200)
+        env = WrappedEnv(env, 150)
         
     env_steps = int(args['env_steps'])
     
     if not rlc_eval:
-        xtick = num_eval_episodes * 200
+        xtick = num_eval_episodes * 150
         logger = Logger(log_dir, xtick=xtick) 
         tag = 'train'
     else:
@@ -84,6 +86,9 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
     best_return = -1e8
     best_actor_params_path = os.path.join(log_dir, 'best_actor_params.pkl') 
     params = None
+    roi = None
+    action_scale = None
+
     while True:
         data = eval_queue.get()
         if isinstance(data, str):
@@ -92,17 +97,24 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                 env.close()
                 sys.exit()
         else:
-            params = data
-            step = int(eval_queue.get())
+            params = data['params']
+            step = data['step'] 
+            if 'roi' in data:
+                roi = data['roi']
+            if 'action_scale' in data:
+                action_scale = data['action_scale']
         
         epi = 0
         
         vid = False
         if args['env_type'] == 'RLC':
-            if step % env_steps == 0:
+            if step % 20000 == 0:
                 vid = True
         
-        state = env.reset(create_vid=vid)
+        if action_scale is not None:
+            state = env.reset(create_vid=vid, action_scale=action_scale, roi=roi)
+        else:
+            state = env.reset(create_vid=vid)
         while epi < num_eval_episodes: 
             rng, action = sample_actions(rng, 
                                          actor.apply, 

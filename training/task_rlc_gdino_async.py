@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async"
-    parser.add_argument('--step_time', default=0.1, type=float) 
+    parser.add_argument('--step_time', default=0.075, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)
     parser.add_argument('--mask_delay_steps', default=2, type=int) 
 
