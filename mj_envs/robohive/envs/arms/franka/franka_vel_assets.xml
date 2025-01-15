@@ -7,35 +7,75 @@
         <material name="gray" rgba="0.4627 0.4627 0.4627 1"/>
         <material name="mug" specular="1" shininess="1"/>
 
+
+        <mesh name="stapler" file="../../../../simhive/object_sim/stapler/stapler.stl" />
+        <mesh name="stapler_contact0" file="../../../../simhive/object_sim/stapler/contact0.stl" />
+        <mesh name="stapler_contact1" file="../../../../simhive/object_sim/stapler/contact1.stl" />
+        <mesh name="stapler_contact2" file="../../../../simhive/object_sim/stapler/contact2.stl" />
+        <mesh name="stapler_contact3" file="../../../../simhive/object_sim/stapler/contact3.stl" />
+        <mesh name="stapler_contact4" file="../../../../simhive/object_sim/stapler/contact4.stl" />
+
+        <mesh name="camera" file="../../../../simhive/object_sim/camera/camera.stl" />
+        <mesh name="camera_contact1" file="../../../../simhive/object_sim/camera/contact1.stl" />
+        <mesh name="camera_contact0" file="../../../../simhive/object_sim/camera/contact0.stl" />
+
+
+        <mesh name="hammer" file="../../../../simhive/object_sim/hammer/hammer.stl" />
+        <mesh name="hammer_contact0" file="../../../../simhive/object_sim/hammer/contact0.stl" />
+        <mesh name="hammer_contact1" file="../../../../simhive/object_sim/hammer/contact1.stl" />
+
+
+        <mesh name="bowl" file="../../../../simhive/object_sim/bowl/bowl.stl" />
+        <mesh name="bowl_contact0" file="../../../../simhive/object_sim/bowl/contact0.stl" />
+        <mesh name="bowl_contact1" file="../../../../simhive/object_sim/bowl/contact1.stl" />
+        <mesh name="bowl_contact2" file="../../../../simhive/object_sim/bowl/contact2.stl" />
+        <mesh name="bowl_contact3" file="../../../../simhive/object_sim/bowl/contact3.stl" />
+        <mesh name="bowl_contact4" file="../../../../simhive/object_sim/bowl/contact4.stl" />
+        <mesh name="bowl_contact5" file="../../../../simhive/object_sim/bowl/contact5.stl" />
+        <mesh name="bowl_contact6" file="../../../../simhive/object_sim/bowl/contact6.stl" />
+        <mesh name="bowl_contact7" file="../../../../simhive/object_sim/bowl/contact7.stl" />
+        <mesh name="bowl_contact8" file="../../../../simhive/object_sim/bowl/contact8.stl" />
+        <mesh name="bowl_contact9" file="../../../../simhive/object_sim/bowl/contact9.stl" />
+        <mesh name="bowl_contact10" file="../../../../simhive/object_sim/bowl/contact10.stl" />
+        <mesh name="bowl_contact11" file="../../../../simhive/object_sim/bowl/contact11.stl" />
+
         <mesh name="apple" file="../../../../simhive/object_sim/apple/apple.stl"/>
         <mesh name="a_contact0" file="../../../../simhive/object_sim/apple/contact0.stl"/>
         <mesh name="a_contact1" file="../../../../simhive/object_sim/apple/contact1.stl"/>
+
         <mesh name="cylindersmall" file="../../../../simhive/object_sim/cylindersmall/cylindersmall.stl"/>
         <mesh name="c_contact0" file="../../../../simhive/object_sim/cylindersmall/contact0.stl"/>
+
         <mesh name="waterbottle" file="../../../../simhive/object_sim/waterbottle/waterbottle.stl"/>
         <mesh name="w_contact0" file="../../../../simhive/object_sim/waterbottle/contact0.stl"/>
         <mesh name="w_contact1" file="../../../../simhive/object_sim/waterbottle/contact1.stl"/>
+
         <mesh name="rubberduck" file="../../../../simhive/object_sim/rubberduck/rubberduck.stl"/>
         <mesh name="d_contact0" file="../../../../simhive/object_sim/rubberduck/contact0.stl"/>
         <mesh name="d_contact1" file="../../../../simhive/object_sim/rubberduck/contact1.stl"/>
         <mesh name="d_contact2" file="../../../../simhive/object_sim/rubberduck/contact2.stl"/>
+
         <mesh name="torusmedium" file="../../../../simhive/object_sim/torusmedium/torusmedium.stl"/>
         <mesh name="t_contact0" file="../../../../simhive/object_sim/torusmedium/contact0.stl"/>
         <mesh name="t_contact1" file="../../../../simhive/object_sim/torusmedium/contact1.stl"/>
         <mesh name="t_contact2" file="../../../../simhive/object_sim/torusmedium/contact2.stl"/>
         <mesh name="t_contact3" file="../../../../simhive/object_sim/torusmedium/contact3.stl"/>
         <mesh name="t_contact4" file="../../../../simhive/object_sim/torusmedium/contact4.stl"/>
+
         <mesh name="alarmclock" file="../../../../simhive/object_sim/alarmclock/alarmclock.stl"/>
         <mesh name="al_contact0" file="../../../../simhive/object_sim/alarmclock/contact0.stl"/>
+
         <mesh name="banana" file="../../../../simhive/object_sim/banana/banana.stl"/>
         <mesh name="b_contact0" file="../../../../simhive/object_sim/banana/contact0.stl"/>
         <mesh name="b_contact1" file="../../../../simhive/object_sim/banana/contact1.stl"/>
         <mesh name="b_contact2" file="../../../../simhive/object_sim/banana/contact2.stl"/>
         <mesh name="b_contact3" file="../../../../simhive/object_sim/banana/contact3.stl"/>
         <mesh name="b_contact4" file="../../../../simhive/object_sim/banana/contact4.stl"/>
+
         <mesh name="lightbulb" file="../../../../simhive/object_sim/lightbulb/lightbulb.stl"/>
         <mesh name="l_contact0" file="../../../../simhive/object_sim/lightbulb/contact0.stl"/>
         <mesh name="l_contact1" file="../../../../simhive/object_sim/lightbulb/contact1.stl"/>
+
         <mesh name="cup" file="../../../../simhive/object_sim/cup/cup.stl"/>
         <mesh name="p_contact0" file="../../../../simhive/object_sim/cup/contact0.stl"/>
         <mesh name="p_contact1" file="../../../../simhive/object_sim/cup/contact1.stl"/>
@@ -104,16 +144,16 @@
         <mesh name="contact32" file="../../../../simhive/object_sim/wineglass/contact32.stl"/>
         <mesh name="contact33" file="../../../../simhive/object_sim/wineglass/contact33.stl"/>
 
-        <mesh file="tubes_0.obj"/>
-        <mesh file="tubes_1.obj"/>
-        <mesh file="tubes_collision_0.obj"/>
-        <mesh file="tubes_collision_1.obj"/>
-        <mesh file="tubes_collision_2.obj"/>
-        <mesh file="tubes_collision_3.obj"/>
-        <mesh file="tubes_collision_4.obj"/>
-        <mesh file="tubes_collision_5.obj"/>
-        <mesh file="tubes_collision_6.obj"/>
-        <mesh file="tubes_collision_7.obj"/>
+        <mesh name="tubes" file="tubes_0.obj"/>
+        <!-- <mesh file="tubes_1.obj"/> -->
+        <mesh name="tube_collision0" file="tubes_collision_0.obj"/>
+        <mesh name="tube_collision1" file="tubes_collision_1.obj"/>
+        <mesh name="tube_collision2" file="tubes_collision_2.obj"/>
+        <mesh name="tube_collision3" file="tubes_collision_3.obj"/>
+        <mesh name="tube_collision4" file="tubes_collision_4.obj"/>
+        <mesh name="tube_collision5" file="tubes_collision_5.obj"/>
+        <mesh name="tube_collision6" file="tubes_collision_6.obj"/>
+        <mesh name="tube_collision7" file="tubes_collision_7.obj"/>
 
         
         <mesh file="rack.obj"/>

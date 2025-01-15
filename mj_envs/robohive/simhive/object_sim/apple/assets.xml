@@ -1,4 +1,4 @@
-<mujocoinclude model="apple">
+<mujoco model="apple">
 
     <asset>
         <mesh name="apple" file="../object_sim/apple/apple.stl"/>
@@ -6,4 +6,4 @@
         <mesh name="contact1" file="../object_sim/apple/contact1.stl"/>
     </asset>
 
-</mujocoinclude>
+</mujoco>
