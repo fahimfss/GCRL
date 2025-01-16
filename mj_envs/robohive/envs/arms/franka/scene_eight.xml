@@ -280,7 +280,7 @@
 
     </body>
 
-    <!-- eyeglasses ,  sphere (egg white), teapot, stapler, train-->
+    <!-- eyeglasses , teapot  -->
 
 
     <body name="object_13">
@@ -325,17 +325,111 @@
       <geom name="stapler_contact2" mesh="stapler_contact2" class="collision_b" />
       <geom name="stapler_contact3" mesh="stapler_contact3" class="collision_b" />
       <geom name="stapler_contact4" mesh="stapler_contact4" class="collision_b" />
-
     </body>
 
+    <body name="Object_17">
+      <!-- Sphere -->
+      <freejoint />
+      <site name="sphere" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="sphere" mesh="sphere" class="visual_b" rgba="1 1 1 1" />
+      <geom name="sphere_contact0" mesh="sphere_contact0" class="collision_b" rgba="1 1 1 1" />
+    </body>
+
+
+    <body name="object_18">
+      <!-- Train -->
+      <freejoint />
+      <site name="train" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="train" mesh="train" class="visual_b" rgba="1 1 1 1" />
+      <geom name="train_contact0" mesh="train_contact0" class="collision_b" />
+    </body>
+
+    <body name="object_19">
+      <!-- Teapot -->
+      <freejoint />
+      <site name="teapot" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="teapot" mesh="teapot" class="visual_b" rgba="1 1 1 1" />
+      <geom name="teapot_contact0" mesh="teapot_contact0" class="collision_b" />
+      <geom name="teapot_contact1" mesh="teapot_contact1" class="collision_b" />
+      <geom name="teapot_contact2" mesh="teapot_contact2" class="collision_b" />
+      <geom name="teapot_contact3" mesh="teapot_contact3" class="collision_b" />
+      <geom name="teapot_contact4" mesh="teapot_contact4" class="collision_b" />
+      <geom name="teapot_contact5" mesh="teapot_contact5" class="collision_b" />
+      <geom name="teapot_contact6" mesh="teapot_contact6" class="collision_b" />
+      <geom name="teapot_contact7" mesh="teapot_contact7" class="collision_b" />
+      <geom name="teapot_contact8" mesh="teapot_contact8" class="collision_b" />
+      <geom name="teapot_contact9" mesh="teapot_contact9" class="collision_b" />
+      <geom name="teapot_contact10" mesh="teapot_contact10" class="collision_b" />
+      <geom name="teapot_contact11" mesh="teapot_contact11" class="collision_b" />
+      <geom name="teapot_contact12" mesh="teapot_contact12" class="collision_b" />
+      <geom name="teapot_contact13" mesh="teapot_contact13" class="collision_b" />
+      <geom name="teapot_contact14" mesh="teapot_contact14" class="collision_b" />
+      <geom name="teapot_contact15" mesh="teapot_contact15" class="collision_b" />
+      <geom name="teapot_contact16" mesh="teapot_contact16" class="collision_b" />
+      <geom name="teapot_contact17" mesh="teapot_contact17" class="collision_b" />
+      <geom name="teapot_contact18" mesh="teapot_contact18" class="collision_b" />
+      <geom name="teapot_contact19" mesh="teapot_contact19" class="collision_b" />
+      <geom name="teapot_contact20" mesh="teapot_contact20" class="collision_b" />
+      <geom name="teapot_contact21" mesh="teapot_contact21" class="collision_b" />
+      <geom name="teapot_contact22" mesh="teapot_contact22" class="collision_b" />
+      <geom name="teapot_contact23" mesh="teapot_contact23" class="collision_b" />
+      <geom name="teapot_contact24" mesh="teapot_contact24" class="collision_b" />
+      <geom name="teapot_contact25" mesh="teapot_contact25" class="collision_b" />
+      <geom name="teapot_contact26" mesh="teapot_contact26" class="collision_b" />
+      <geom name="teapot_contact27" mesh="teapot_contact27" class="collision_b" />
+      <geom name="teapot_contact28" mesh="teapot_contact28" class="collision_b" />
+      <geom name="teapot_contact29" mesh="teapot_contact29" class="collision_b" />
+      <geom name="teapot_contact30" mesh="teapot_contact30" class="collision_b" />
+      <geom name="teapot_contact31" mesh="teapot_contact31" class="collision_b" />
+      <geom name="teapot_contact32" mesh="teapot_contact32" class="collision_b" />
+      <geom name="teapot_contact33" mesh="teapot_contact33" class="collision_b" />
+      <geom name="teapot_contact34" mesh="teapot_contact34" class="collision_b" />
+      <geom name="teapot_contact35" mesh="teapot_contact35" class="collision_b" />
+      <geom name="teapot_contact36" mesh="teapot_contact36" class="collision_b" />
+      <geom name="teapot_contact37" mesh="teapot_contact37" class="collision_b" />
+      <geom name="teapot_contact38" mesh="teapot_contact38" class="collision_b" />
+      <geom name="teapot_contact39" mesh="teapot_contact39" class="collision_b" />
+      <geom name="teapot_contact40" mesh="teapot_contact40" class="collision_b" />
+    </body>
+
+
+    <body name="object_20">
+        <!-- Eyeglasses -->
+        <freejoint />
+        <site name="eyeglasses" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+        <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+        <geom name="eyeglasses" mesh="eyeglasses" class="visual_b" rgba="1 1 1 1" />
+        <geom name="eyeglasses_contact0" mesh="eyeglasses_contact0" class="collision_b"/>
+        <geom name="eyeglasses_contact1" mesh="eyeglasses_contact1" class="collision_b"/>
+        <geom name="eyeglasses_contact2" mesh="eyeglasses_contact2" class="collision_b"/>
+        <geom name="eyeglasses_contact3" mesh="eyeglasses_contact3" class="collision_b"/>
+        <geom name="eyeglasses_contact4" mesh="eyeglasses_contact4" class="collision_b"/>
+        <geom name="eyeglasses_contact5" mesh="eyeglasses_contact5" class="collision_b"/>
+        <geom name="eyeglasses_contact6" mesh="eyeglasses_contact6" class="collision_b"/>
+        <geom name="eyeglasses_contact7" mesh="eyeglasses_contact7" class="collision_b"/>
+        <geom name="eyeglasses_contact8" mesh="eyeglasses_contact8" class="collision_b"/>
+        <geom name="eyeglasses_contact9" mesh="eyeglasses_contact9" class="collision_b"/>
+        <geom name="eyeglasses_contact10" mesh="eyeglasses_contact10" class="collision_b"/>
+        <geom name="eyeglasses_contact11" mesh="eyeglasses_contact11" class="collision_b"/>
+        <geom name="eyeglasses_contact12" mesh="eyeglasses_contact12" class="collision_b"/>
+        <geom name="eyeglasses_contact13" mesh="eyeglasses_contact13" class="collision_b"/>
+        <geom name="eyeglasses_contact14" mesh="eyeglasses_contact14" class="collision_b"/>
+        <geom name="eyeglasses_contact15" mesh="eyeglasses_contact15" class="collision_b"/>
+        <geom name="eyeglasses_contact16" mesh="eyeglasses_contact16" class="collision_b"/>
+        <geom name="eyeglasses_contact17" mesh="eyeglasses_contact17" class="collision_b"/>
+        <geom name="eyeglasses_contact18" mesh="eyeglasses_contact18" class="collision_b"/>
+    </body>
 
   </worldbody>
 
 
   <keyframe>
-    <!--                                                  FRANKA JOINTS                                                     APPLE                                    CUBE                                 BEAKER                                     BEAKER BASE                                    BANANA                                    ALARM                               CUP                                      DUCK                             DONUT                          WATERBOTTLE                   LIGHTBULB                     wineglass                bowl                   cylinder                        Hammer                        Camera                    stapler                -->
+    <!--                                                  FRANKA JOINTS                                      APPLE                                    CUBE                                 BEAKER                                     BEAKER BASE                                    BANANA                                    ALARM                               CUP                                      DUCK                             DONUT                          WATERBOTTLE                         LIGHTBULB                     wineglass                bowl                   cylinder                        Hammer                        Camera                    stapler            SPHERE                  TRAIN              TEAPOT                       eyeglass                  -->
 
-    <key name="default"       qpos="0 -1.51838 0 -3.07318 0 2.14852 0.811486 0 0                                       -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.93 1 0 0 0         -0.1 0.58 0.93 1 0 0 0      0.1 0.58 0.93 1 0 0 0     0.3 0.58 0.93 1 0 0 0       0.4 0.58 0.93 1 0 0 0    -0.5 0.7 0.895 1 0 0 0     -0.3 0.7 0.9 1 0 0 0     "
+    <key name="default" qpos="0 -1.51838 0 -3.07318 0 2.14852 0.811486 0 0                            -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.93 1 0 0 0         -0.1 0.58 0.93 1 0 0 0      0.1 0.58 0.93 1 0 0 0     0.3 0.58 0.93 1 0 0 0       0.4 0.58 0.93 1 0 0 0    -0.5 0.75 0.895 1 0 0 0     -0.3 0.75 0.9 1 0 0 0    -0.1 0.75 0.9 1 0 0 0    0.1 0.75 0.9 1 0 0 0   0.3 0.75 0.9 1 0 0 0    0.48 0.74 0.9 1 0 0 0         "
       ctrl="0.02897 0.01763 -0.17382 -1.07554 0.02897 1.26413 0.608 0" />
   </keyframe>
 
