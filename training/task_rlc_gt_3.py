@@ -41,13 +41,13 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gt_3', type=str)
+    parser.add_argument('--task_name', default='gt_0', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
     parser.add_argument('--step_time', default=0.0, type=float) 
-    parser.add_argument('--mask_delay_type', default='n_step', type=str)  # "none", "n_step", "sequential"
+    parser.add_argument('--mask_delay_type', default='none', type=str)  # "none", "n_step", "sequential"
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
@@ -98,7 +98,7 @@ def parse_args():
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
 
-    parser.add_argument('--img_aug_path', default='/home/fahim/project/robotx/images_array_90_159.npy', type=str)
+    parser.add_argument('--img_aug_path', default='', type=str)
     parser.add_argument('--buffer_save_path', default='', type=str) # ./buffers/
     parser.add_argument('--buffer_load_path', default='', type=str) # ./buffers/
 
@@ -217,7 +217,7 @@ def main(seed=-1, env_name=None):
 
     update_paused = True
     time.sleep(5)
-    state = env.reset(create_vid=True)
+    state = env.reset(create_vid=False)
     
     first_step = True
 
@@ -244,7 +244,7 @@ def main(seed=-1, env_name=None):
                 eval_queue_1.put('start_gdino_async')
                 eval_queue_2.put('start_gdino_async')
             else:
-                state = env.reset(create_vid=True)
+                state = env.reset(create_vid=False)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time

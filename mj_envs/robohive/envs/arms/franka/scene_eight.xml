@@ -275,7 +275,7 @@
     <body name="object_12">
       <!-- Bowl -->
       <freejoint />
-      <site name="bowl" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_12" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="tubes" mesh="bowl" class="visual_b" rgba="0.8 0.447 0.0 1"/>
       <geom name="bowl_contact0" mesh="bowl_contact0" class="collision_b" />
@@ -296,19 +296,37 @@
     <!-- eyeglasses , teapot  -->
 
 
-    <body name="object_13">
-      <!-- Cylinder -->
+    <!-- Cylinder -->
+    <!-- <body name="object_13">
+      
       <freejoint />
       <site name="cylinder" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="cylinder" mesh="cylindersmall" class="visual_b" rgba="0.8 0.6 1.0 1"/>
       <geom name="c_contact0" mesh="c_contact0" class="collision_b" />
+    </body> -->
+
+    <body name="object_13">
+      <!-- headphones -->
+      <freejoint />
+      <site name="object_13" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="headphones" mesh="headphones" class="visual_b" rgba="0.4 0.4 0.4 1"/>
+      <geom name="headphones_contact0" mesh="headphones_contact0" class="collision_b" />
+      <geom name="headphones_contact1" mesh="headphones_contact1" class="collision_b" />
+      <geom name="headphones_contact2" mesh="headphones_contact2" class="collision_b" />
+      <geom name="headphones_contact3" mesh="headphones_contact3" class="collision_b" />
+      <geom name="headphones_contact4" mesh="headphones_contact4" class="collision_b" />
+      <geom name="headphones_contact5" mesh="headphones_contact5" class="collision_b" />
+      <geom name="headphones_contact6" mesh="headphones_contact6" class="collision_b" />
+      <geom name="headphones_contact7" mesh="headphones_contact7" class="collision_b" />
     </body>
+
 
     <body name="object_14">
       <!-- Hammer -->
       <freejoint />
-      <site name="hammer" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_14" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="hammer1" mesh="hammer1" class="visual_b" rgba='0.545 0.271 0 1'/>
@@ -322,7 +340,7 @@
     <body name="object_15">
       <!-- Camera -->
       <freejoint />
-      <site name="camera" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' /> 
+      <site name="object_15" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' /> 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
 
       
@@ -339,7 +357,7 @@
     <body name="object_16">
       <!-- Stapler -->
       <freejoint />
-      <site name="stapler" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_16" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="stapler1" mesh="stapler1" class="visual_b" rgba="0.0 0.0 0.75 1"/>
       <geom name="stapler2" mesh="stapler2" class="visual_b" rgba="0.75 0.75 0.75 1"/>
@@ -351,10 +369,10 @@
       <geom name="stapler_contact4" mesh="stapler_contact4" class="collision_b" />
     </body>
 
-    <body name="Object_17">
+    <body name="object_17">
       <!-- Sphere -->
       <freejoint />
-      <site name="sphere" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_17" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="sphere" mesh="sphere" class="visual_b" rgba="1 1 1 1" />
       <geom name="sphere_contact0" mesh="sphere_contact0" class="collision_b" rgba="1 1 1 1" />
@@ -364,7 +382,7 @@
     <body name="object_18">
       <!-- Train -->
       <freejoint />
-      <site name="train" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_18" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
 
       <geom name="train1" mesh="train1" class="visual_b" rgba="0.196 0.804 0.196 1" />
@@ -377,7 +395,7 @@
     <body name="object_19">
       <!-- Teapot -->
       <freejoint />
-      <site name="teapot" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <site name="object_19" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
       <geom name="teapot" mesh="teapot" class="visual_b" rgba="0.7 0.5 0.5 1" />
       <geom name="teapot_contact0" mesh="teapot_contact0" class="collision_b" />
@@ -427,7 +445,7 @@
     <body name="object_20">
         <!-- Eyeglasses -->
         <freejoint />
-        <site name="eyeglasses" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+        <site name="object_20" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
         <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
         <geom name="eyeglasses" mesh="eyeglasses" class="visual_b" rgba="1 1 1 1" />
         <geom name="eyeglasses_contact0" mesh="eyeglasses_contact0" class="collision_b"/>
@@ -455,9 +473,9 @@
 
 
   <keyframe>
-    <!--                                                  FRANKA JOINTS                                      APPLE                                    CUBE                                 BEAKER                                     BEAKER BASE                                    BANANA                                    ALARM                               CUP                                      DUCK                             DONUT                   WATERBOTTLE                         LIGHTBULB                     wineglass                       bowl                   cylinder                        Hammer                        Camera                    stapler            SPHERE                  TRAIN              TEAPOT                       eyeglass                  -->
+    <!--                                 FRANKA JOINTS                                       APPLE                                    CUBE                                 BEAKER                                     BEAKER BASE                                    BANANA                                    ALARM                               CUP                                      DUCK                           DONUT                   WATERBOTTLE                         LIGHTBULB                     wineglass                       bowl                      headphones                            Hammer                                Camera                    stapler                  SPHERE                          TRAIN                 TEAPOT                  eyeglass               -->
 
-    <key name="default" qpos="0 -1.51838 0 -3.07318 0 2.14852 0.811486 0 0                            -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.858 1 0 0 0         -0.1 0.58 0.93 1 0 0 0      0.1 0.58 0.93 1 0 0 0     0.3 0.58 0.93 1 0 0 0       0.45 0.58 0.838 0.92388 0 0 -0.38268    -0.5 0.75 0.895 1 0 0 0     -0.3 0.75 0.9 1 0 0 0    -0.1 0.75 0.9 1 0 0 0    0.1 0.75 0.9 1 0 0 0   0.3 0.75 0.9 1 0 0 0    0.48 0.74 0.9 1 0 0 0         "
+    <key name="default" qpos="0 -1.51838 0 -3.07318 0 2.14852 0.811486 0 0            -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.858 1 0 0 0         -0.1 0.58 0.886 1 0 0 0      0.1 0.58 0.848 1 0 0 0     0.3 0.58 0.845 1 0 0 0       0.45 0.58 0.834 0.92388 0 0 -0.38268    -0.5 0.75 0.86 1 0 0 0     -0.3 0.75 0.846 1 0 0 0    -0.1 0.75 0.843 1 0 0 0    0.1 0.75 0.867 1 0 0 0   0.3 0.75 0.859 1 0 0 0    0.48 0.74 0.839 1 0 0 0         "
       ctrl="0.02897 0.01763 -0.17382 -1.07554 0.02897 1.26413 0.608 0" />
   </keyframe>
 

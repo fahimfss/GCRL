@@ -100,6 +100,16 @@
         <mesh name="camera_contact1" file="../../../../simhive/object_sim/camera/contact1.stl" />
         <mesh name="camera_contact0" file="../../../../simhive/object_sim/camera/contact0.stl" />
 
+        <mesh name="headphones" file="../../../../simhive/object_sim/headphones/headphones.stl" scale="0.7 0.7 0.7"/>  
+        <mesh name="headphones_contact0" file="../../../../simhive/object_sim/headphones/contact0.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact1" file="../../../../simhive/object_sim/headphones/contact1.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact2" file="../../../../simhive/object_sim/headphones/contact2.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact3" file="../../../../simhive/object_sim/headphones/contact3.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact4" file="../../../../simhive/object_sim/headphones/contact4.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact5" file="../../../../simhive/object_sim/headphones/contact5.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact6" file="../../../../simhive/object_sim/headphones/contact6.stl" scale="0.7 0.7 0.7"/> 
+        <mesh name="headphones_contact7" file="../../../../simhive/object_sim/headphones/contact7.stl" scale="0.7 0.7 0.7"/> 
+
 
         <mesh name="hammer1" file="../../../../simhive/object_sim/hammer/hammer1.stl" scale="0.75 0.75 0.75"/>
         <mesh name="hammer2" file="../../../../simhive/object_sim/hammer/hammer2.stl" scale="0.75 0.75 0.75"/>

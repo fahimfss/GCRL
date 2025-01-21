@@ -158,7 +158,7 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               image_width=848,
+               image_width=640,
                image_height=480,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
@@ -247,9 +247,32 @@ class EnvV0(env_base_0.MujocoEnv):
         
         self.target_name = "apple"
         
-        self.TS = ['object_1',  'object_2',    'object_3',          'object_4',        'object_5',        'object_6',        'object_7',     'object_8']
-        self.TN = ['red apple', 'green block', 'baked brown donut', 'glass flask jar', 'yellow toy duck', 'yellow banana',   'purple clock', 'cup'     ]
-        # self.TN = ['apple',    'green block', 'donut',    'beaker',   'rubber duck', 'banana',   'alarm clock', 'cup'     ]
+        self.objects = {
+            'object_1': 'red apple',
+            'object_2': 'green block',
+            'object_3': 'chocolate donut',
+            'object_4': 'glass flask jar',
+            'object_5': 'yellow toy duck',
+            'object_6': 'banana',
+            'object_7': 'purple alarm clock',
+            'object_8': 'cup',
+            'object_9': 'water bottle',
+            'object_10': 'light bulb',
+            'object_11': 'wine glass',
+            'object_12': 'copper bowl',
+            'object_13': 'silver headphone',
+            'object_14': 'hammer',
+            'object_15': 'camera',
+            'object_16': 'stapler',
+            'object_17': 'sphere',
+            'object_18': 'train',
+            'object_19': 'teapot',
+            'object_20': 'eyeglasses',
+        }
+
+        self.TS = list(self.objects.keys())
+        self.TN = list(self.objects.values())
+
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
         self.target_site_name = self.TS[0]
@@ -346,7 +369,7 @@ class EnvV0(env_base_0.MujocoEnv):
         object_jnt_adr = self.sim.model.body_jntadr[objec_bid]
         object_qpos_adr = self.sim.model.jnt_qposadr[object_jnt_adr]
         if drop: 
-            reset_qpos[object_qpos_adr + 2] = 0.4
+            reset_qpos[object_qpos_adr + 2] = -400
         else:
             reset_qpos[object_qpos_adr] = x_pos
             reset_qpos[object_qpos_adr + 1] = y_pos
@@ -356,7 +379,7 @@ class EnvV0(env_base_0.MujocoEnv):
             object_jnt_adr = self.sim.model.body_jntadr[objec_bid]
             object_qpos_adr = self.sim.model.jnt_qposadr[object_jnt_adr]
             if drop: 
-                reset_qpos[object_qpos_adr + 2] = 0.4
+                reset_qpos[object_qpos_adr + 2] = -400
             else:
                 reset_qpos[object_qpos_adr] = x_pos
                 reset_qpos[object_qpos_adr + 1] = y_pos
@@ -383,7 +406,7 @@ class EnvV0(env_base_0.MujocoEnv):
             self.masks_recieved = 0
          
         if self.env_mode == "train":
-            number = np.random.randint(0, 5)
+            number = np.random.randint(0, 20)
         elif self.env_mode == "eval_ofd":
             number = np.random.randint(5, 8)
         elif self.env_mode == "eval":
@@ -431,9 +454,12 @@ class EnvV0(env_base_0.MujocoEnv):
                 for obj_name in self.TS[0:3]:
                     self.place_object(obj_name, reset_qpos, drop=True)
             else:
-                site_names = random.sample(self.TS[0:5], 5)
-                for obj_name in self.TS[5:8]:
-                    self.place_object(obj_name, reset_qpos, drop=True)
+                site_names = random.sample(self.TS[0:20], 4)
+                site_names.append(self.target_site_name)
+
+                for obj_name in self.TS:
+                    if obj_name not in site_names:
+                        self.place_object(obj_name, reset_qpos, drop=True)
             
             center_obj_x_pos = random.uniform(self.center_obj_range[0][0], 
                                               self.center_obj_range[0][1])
@@ -598,7 +624,9 @@ class EnvV0(env_base_0.MujocoEnv):
             mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
             x, y = int(self.target_x), int(self.target_y)
             half_side = int(max(self.r, 2))
-            cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
+            if half_side < 1000:
+                cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
+
 
             if self.mask_delay_type == "none":
                 self.current_mask = mask
