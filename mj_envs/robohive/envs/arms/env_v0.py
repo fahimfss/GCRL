@@ -1,88 +1,87 @@
-import os
 import time
 import copy
 import math
-import torch
+
 import random
-import torch.jit
 import cv2 as cv
 import collections
 import numpy as np
 from PIL import Image
 import gymnasium as gym
 import multiprocessing as mp
-from torchvision.ops import box_convert
-
 from robohive.envs import env_base_0
-import groundingdino.datasets.transforms as T 
+
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
+
+import torch
+from torchvision.ops import box_convert
+import groundingdino.datasets.transforms as T 
 from groundingdino.util.inference import load_model, predict
-
-
+    
 BOX_THRESHOLD = 0.40
 TEXT_THRESHOLD = 0.25
 
-def load_image(image_source: torch.Tensor, image_size: int):
-        transform = T.Compose(
-            [
-                T.RandomResize(image_size),
-                T.ToTensor(),
-                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ]
-        )
-        image_transformed, _ = transform(image_source, None)
-        return image_transformed
+def load_image(image_source, image_size: int):
+    transform = T.Compose(
+        [
+            T.RandomResize(image_size),
+            T.ToTensor(),
+            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ]
+    )
+    image_transformed, _ = transform(image_source, None)
+    return image_transformed
 
 def create_mask(image_source, boxes) -> np.ndarray:
-        """
-        This function creates a mask with white rectangles on a black background,
-        where the rectangles are defined by the bounding boxes.
+    """
+    This function creates a mask with white rectangles on a black background,
+    where the rectangles are defined by the bounding boxes.
 
-        Parameters:
-        image_source (np.ndarray): The source image for determining the size of the mask.
-        boxes (torch.Tensor): A tensor containing bounding box coordinates in cxcywh format.
+    Parameters:
+    image_source (np.ndarray): The source image for determining the size of the mask.
+    boxes (torch.Tensor): A tensor containing bounding box coordinates in cxcywh format.
 
-        Returns:
-        np.ndarray: The mask image.
-        """
-        # Get the dimensions of the source image
-        h, w = image_source.shape
+    Returns:
+    np.ndarray: The mask image.
+    """
+    # Get the dimensions of the source image
+    h, w = image_source.shape
 
-        # Scale the boxes to the image dimensions
-        boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
+    # Scale the boxes to the image dimensions
+    boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
 
-        # Convert boxes from cxcywh to xyxy format
-        xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
+    # Convert boxes from cxcywh to xyxy format
+    xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
 
-        # Create a black mask
-        mask = np.zeros((h, w), dtype=np.uint8)
-        center = (-2000, -2000)
-            
-        if xyxy.size != 0:
-            px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
-            py1, py2 = float(xyxy[1]) / h, float(xyxy[3]) / h
-            
-            if px2 - px1 > 0.8 and py2 - py1 > 0.8:
-                pass
-            elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
-                pass 
-            elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
-                pass 
-            else: 
-                top_left = (int(xyxy[0]), int(xyxy[1]))
-                bottom_right = (int(xyxy[2]), int(xyxy[3]))
-                center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
-                cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
-                white_pixels = np.argwhere(mask == 255)
-            
-                # Calculate the mean of each column (x, y coordinates)
-                centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
+    # Create a black mask
+    mask = np.zeros((h, w), dtype=np.uint8)
+    center = (-2000, -2000)
+        
+    if xyxy.size != 0:
+        px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
+        py1, py2 = float(xyxy[1]) / h, float(xyxy[3]) / h
+        
+        if px2 - px1 > 0.8 and py2 - py1 > 0.8:
+            pass
+        elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
+            pass 
+        elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
+            pass 
+        else: 
+            top_left = (int(xyxy[0]), int(xyxy[1]))
+            bottom_right = (int(xyxy[2]), int(xyxy[3]))
+            center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
+            cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
+            white_pixels = np.argwhere(mask == 255)
+        
+            # Calculate the mean of each column (x, y coordinates)
+            centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
 
-                # Convert from (row, col) to (x, y)
-                centroid = (centroid[1], centroid[0])
+            # Convert from (row, col) to (x, y)
+            centroid = (centroid[1], centroid[0])
 
-        return mask, center
+    return mask, center
     
 def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
     model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
@@ -223,7 +222,6 @@ class EnvV0(env_base_0.MujocoEnv):
         if self.mask_type == "gdino_sync":
             # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
             #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-            
             self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
                                "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
             

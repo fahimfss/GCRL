@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
     parser.add_argument('--task_name', default='gt_0', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
-    parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
+    parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
     parser.add_argument('--step_time', default=0.0, type=float) 
