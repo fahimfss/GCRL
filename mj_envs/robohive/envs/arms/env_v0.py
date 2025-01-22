@@ -167,6 +167,7 @@ class EnvV0(env_base_0.MujocoEnv):
                mask_delay_steps = 2,
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
+               ofd_index=0,
                **kwargs,
         ):
 
@@ -180,6 +181,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self._setup_camera() 
         self.current_image = np.ones((image_height, image_width, 4), dtype=np.uint8) 
         self.mask_size = 0  
+        self.mask_size_counter = 0
         self.single_touch = 0
         
         self.target_x, self.target_y = 0, 0
@@ -267,6 +269,27 @@ class EnvV0(env_base_0.MujocoEnv):
             'object_19': 'teapot',
             'object_20': 'eyeglasses',
         }
+        
+        self.ofd = {
+            0: [0, 1, 2, 3, 15],
+            1: [4, 5, 6, 7, 16],
+            2: [8, 9, 10, 11, 17],
+            3: [12, 13, 14, 18, 19],
+            4: [0, 4, 8, 12, 1],
+            5: [1, 5, 9, 13, 17],
+            6: [2, 6, 10, 14, 18],
+            7: [3, 7, 11, 15, 19],
+            8: [0, 5, 8, 16, 2],
+            9: [1, 6, 9, 11, 18],
+            10: [2, 4, 10, 12, 17],
+            11: [3, 5, 14, 19, 8],
+            12: [0, 9, 11, 13, 16],
+            13: [1, 7, 12, 15, 18],
+            14: [2, 10, 14, 16, 19],
+        }
+        
+        self.ofd_index = ofd_index
+        print('ofd_index:', ofd_index)
 
         self.TS = list(self.objects.keys())
         self.TN = list(self.objects.values())
@@ -338,27 +361,33 @@ class EnvV0(env_base_0.MujocoEnv):
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
 
-        if contact == 1:
-            self.single_touch += 1
-            if self.single_touch == 1:
-                print('First touch!')
-        elif contact == 2:
-            self.single_touch += 1
-            print('Second touch!') 
+        # if contact == 1:
+        #     self.single_touch += 1
+        #     if self.single_touch == 1:
+        #         print('First touch!')
+        # elif contact == 2:
+        #     self.single_touch += 1
+        #     print('Second touch!') 
+        
+        mask_size = int(self.mask_size * 100)
+        if mask_size >= 55:
+            self.mask_size_counter += 1
+        
+        done = np.array([self.mask_size_counter]) == 5
              
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
             ('penalty', np.array([-1])),  
             ('mask_size',  mask_size_reward),
-            ('done', contact == 2),  
+            ('done', done),  
         )) 
          
         if self.env_mode == "train":
             rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
         else:
-            rwd_dict['dense'] = 1.0 if contact == 2 else 0
-            rwd_dict['done'] = contact == 2
+            rwd_dict['dense'] = 1.0 if self.mask_size_counter == 5 else 0
+            rwd_dict['done'] = self.mask_size_counter == 5
         
         return rwd_dict
     
@@ -391,6 +420,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_accuracy = 0
         self.distance = 1.0
         self.gs = 0
+        self.mask_size_counter = 0
         self.single_touch = 0
 
         if self.mask_delay_type == "n_step":
@@ -402,34 +432,40 @@ class EnvV0(env_base_0.MujocoEnv):
                 self.masks_recieved += 1
             self.images_sent = 0
             self.masks_recieved = 0
-         
-        if self.env_mode == "train":
-            number = np.random.randint(0, 20)
+        
+        ofd_items = self.ofd[self.ofd_index]
+        train_items = list(set(range(20)) - set(ofd_items))
+        
+        if self.env_mode == "train" or self.env_mode == "eval":
+            number = random.choice(train_items)
         elif self.env_mode == "eval_ofd":
-            number = np.random.randint(5, 8)
-        elif self.env_mode == "eval":
-            number = np.random.randint(0, 5)
+            number = random.choice(ofd_items) 
         else:
             number = self.target_obj_num 
-        
+             
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number] 
-        # print("target:", self.target_name)
+        
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
  
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
             if self.env_mode == "inference_3":
-                other_indices = random.sample([i for i in range(8) if i != number], 2)
+                other_indices = random.sample([i for i in range(20) if i != number], 2)
                 other_site_names = [self.TS[ind] for ind in other_indices]
+                print('other sites:', other_site_names)
             else:
                 other_site_names = []
             
             for obj_name in self.TS:
                 if obj_name == self.target_site_name:
-                    x_pos = random.uniform(-0.03, 0.03)
-                    y_pos = 0.35 + random.uniform(-0.02, 0.02)
+                    if self.env_mode == "inference_1" or self.env_mode == "inference_3":
+                        x_pos = 0
+                        y_pos = 0.35
+                    else:
+                        x_pos = random.uniform(-0.03, 0.03)
+                        y_pos = 0.35 + random.uniform(-0.02, 0.02)
                     self.place_object(obj_name, reset_qpos, x_pos, y_pos)
                     
                     self.target_x = x_pos
@@ -448,11 +484,18 @@ class EnvV0(env_base_0.MujocoEnv):
         
         elif self.env_mode == "eval_ofd" or self.env_mode == "eval" or self.env_mode == "train": 
             if self.env_mode == "eval_ofd":
-                site_names = random.sample(self.TS[3:8], 5)
+                site_names = random.sample(ofd_items, 5)
                 for obj_name in self.TS[0:3]:
                     self.place_object(obj_name, reset_qpos, drop=True)
             else:
-                site_names = random.sample(self.TS[0:20], 4)
+                items = random.randint(2, 4)
+                train_items.remove(number)
+                item_indices = random.sample(train_items, items)
+                site_names = [self.TS[idx] for idx in item_indices]
+                
+                item_names = [self.TN[idx] for idx in item_indices]
+                print('Other objects: ', item_names)
+                
                 site_names.append(self.target_site_name)
 
                 for obj_name in self.TS:
@@ -466,8 +509,8 @@ class EnvV0(env_base_0.MujocoEnv):
                                               self.center_obj_range[1][1])
 
             for index, obj_name in enumerate(site_names):
-                x_pos = center_obj_x_pos + (((index - 2) * 0.165) +  random.uniform(-0.02, 0.02))
-                y_pos = center_obj_y_pos + random.uniform(-0.05, 0.05)
+                x_pos = center_obj_x_pos + (((index - 2) * 0.165) +  random.uniform(-0.05, 0.05))
+                y_pos = center_obj_y_pos + random.uniform(-0.075, 0.075)
                 self.place_object(obj_name, reset_qpos, x_pos, y_pos)
          
         obs = super().reset(reset_qpos = reset_qpos, reset_qvel = None, **kwargs)
@@ -482,6 +525,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.final_image = self.current_image
         
         self.TM = time.time()
+        print("target:", self.target_name)
         return {'image': self.final_image, 'vector': obs}
     
 

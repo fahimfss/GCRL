@@ -51,11 +51,11 @@ def parse_args():
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=400_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -93,7 +93,7 @@ def parse_args():
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
     parser.add_argument('--save_model', default=True, action='store_true')
-    parser.add_argument('--save_model_freq', default=100_000, type=int)
+    parser.add_argument('--save_model_freq', default=200_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
@@ -178,8 +178,9 @@ def main(seed=-1, env_name=None):
                    mask_delay_type=args.mask_delay_type,
                    mask_delay_steps=args.mask_delay_steps,
                    step_time=step_time,
-                   video_path='/home/fahim/project/RLC/training/videos')
-    env = WrappedEnv(env, 200)
+                   ofd_index=args.seed)
+    
+    env = WrappedEnv(env, 150)
 
     set_seed_everywhere(seed=args.seed)
 
@@ -198,7 +199,8 @@ def main(seed=-1, env_name=None):
     if args.eval_steps > 0:
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC'
-        eval_args['sync'] = 'true'
+        eval_args['ofd_index'] = args.seed
+        # eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()
         eval_queue_2 = mp.Queue()
         path1 = os.path.join(args.work_dir, 'eval_log')
@@ -279,13 +281,14 @@ def main(seed=-1, env_name=None):
             agent.pause_update()
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
-            time.sleep(10)
-            eval_queue_1.get()
             
             eval_queue_2.put(agent.get_actor_params())
             eval_queue_2.put(env.total_steps)
-            time.sleep(10)
-            eval_queue_2.get()
+            
+            # time.sleep(10)
+            # eval_queue_1.get() 
+            # eval_queue_2.get()
+            
             if env.total_steps < args.env_steps:
                 agent.resume_update()
 

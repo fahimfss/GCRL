@@ -59,7 +59,8 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                           mask_type=args['mask_type'],
                           env_mode=env_mode,
                           video_path=args['video_dir'],
-                          step_time=step_time)
+                          step_time=step_time,
+                          ofd_index=args['ofd_index'])
         env = WrappedEnv(env, 200)
         
     env_steps = int(args['env_steps'])

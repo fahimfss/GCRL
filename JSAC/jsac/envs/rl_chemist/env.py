@@ -21,7 +21,8 @@ class RLC_Env(gym.Wrapper):
                  mask_delay_steps=2,
                  step_time=None,
                  video_path=".",
-                 render_interactive=False):
+                 render_interactive=False,
+                 ofd_index=0):
 
         if target_obj_num >= 0:
             super().__init__(gym.make(f'robohive.envs:{env_name}', 
@@ -34,13 +35,15 @@ class RLC_Env(gym.Wrapper):
                                         mask_type=mask_type,
                                         mask_delay_type=mask_delay_type,
                                         mask_delay_steps=mask_delay_steps,
-                                        step_time=step_time))
+                                        step_time=step_time,
+                                        ofd_index=ofd_index))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                         env_mode=env_mode,
                                         mask_type=mask_type,
                                         mask_delay_type=mask_delay_type,
-                                        mask_delay_steps=mask_delay_steps))
+                                        mask_delay_steps=mask_delay_steps,
+                                        ofd_index=ofd_index))
 
         self._env_name = env_name
         self._image_history = image_history
