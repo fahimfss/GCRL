@@ -56,11 +56,15 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                           args['image_history'], 
                           args['image_width'], 
                           args['image_height'],  
-                          mask_type=args['mask_type'],
-                          env_mode=env_mode,
+                          mask_delay_type=args['mask_delay_type'],
+                          mask_delay_steps=args['mask_delay_steps'],
+                          goal_type=args['goal_type'],
+                          reward_mode=args['reward_mode'],
                           video_path=args['video_dir'],
                           step_time=step_time,
                           ofd_index=args['ofd_index'])
+        
+        
         env = WrappedEnv(env, 150)
         
     env_steps = int(args['env_steps'])

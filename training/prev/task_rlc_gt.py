@@ -33,12 +33,6 @@ config = {
     'mlp': [1024, 1024],
 }
 
-GOALTYPE_MASK = "G1_Mask"
-GOALTYPE_ONE_HOT = "G2_OH"
-GOALTYPE_3D = "G3_3d"
-GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS"
-
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
@@ -46,23 +40,22 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
+    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
     parser.add_argument('--task_name', default='gt_0', type=str)
-    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
-    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
+    parser.add_argument('--mask_type', default='ground_truth', type=str)  # "ground_truth", "gdino_sync", "gdino_async", "gt_gdino_async"
     parser.add_argument('--step_time', default=0.0, type=float) 
     parser.add_argument('--mask_delay_type', default='none', type=str)  # "none", "n_step", "sequential"
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=400_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -99,7 +92,7 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=False, action='store_true')
+    parser.add_argument('--save_model', default=True, action='store_true')
     parser.add_argument('--save_model_freq', default=200_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
@@ -180,11 +173,10 @@ def main(seed=-1, env_name=None):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height, 
+                   args.image_height,
+                   mask_type=args.mask_type,
                    mask_delay_type=args.mask_delay_type,
                    mask_delay_steps=args.mask_delay_steps,
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
                    step_time=step_time,
                    ofd_index=args.seed)
     
@@ -227,7 +219,7 @@ def main(seed=-1, env_name=None):
 
     update_paused = True
     time.sleep(5)
-    state = env.reset(create_vid=True)
+    state = env.reset(create_vid=False)
     
     first_step = True
 
@@ -249,7 +241,7 @@ def main(seed=-1, env_name=None):
 
         if done or 'truncated' in info: 
             if args.mask_type == "gt_gdino_async" and env.total_steps >= args.gt_steps:
-                state = env.reset(create_vid=True, set_gdino_async=True)
+                state = env.reset(create_vid=False, set_gdino_async=True)
                 args.gt_steps = args.env_steps * 2
                 eval_queue_1.put('start_gdino_async')
                 eval_queue_2.put('start_gdino_async')

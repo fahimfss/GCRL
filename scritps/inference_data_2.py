@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
+    parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
     parser.add_argument('--env_mode', default='inference_1', type=str) 
     parser.add_argument('--target_obj_num', default=7, type=int) 
     parser.add_argument('--image_height', default=480, type=int)     # Mode: img, img_prop
@@ -36,13 +36,12 @@ def main(env_mode, target_obj_num, itr):
     args.target_obj_num = target_obj_num
     args.env_mode = env_mode
 
-    env = RLC_Env(args.env_name, 
-                  args.image_history, 
-                  args.image_width, 
-                  args.image_height, 
-                  args.env_mode, 
-                  "ground_truth",
-                  args.target_obj_num)
+    env = RLC_Env(env_name = args.env_name, 
+                  image_history= args.image_history, 
+                  image_width= args.image_width, 
+                  image_height = args.image_height, 
+                  env_mode = args.env_mode,  
+                  target_obj_num = args.target_obj_num)
     env = WrappedEnv(env, 200)
 
     args.image_shape = env.image_space.shape
@@ -83,7 +82,7 @@ def main(env_mode, target_obj_num, itr):
             if step < 5: 
                 state, reward, done, info = env.step(np.zeros(args.action_shape, dtype=np.float32))
             else:
-                action = np.array([0, start_0, 0, 0.23, 0.0, 0.12, 0.0, 0.0])
+                action = np.array([0] * 8)  #[0, start_0, 0, 0.23, 0.0, 0.12, 0.0, 0.0])
                         
                 t1 = time.time()
                 state, reward, done, info = env.step(action)
@@ -93,7 +92,7 @@ def main(env_mode, target_obj_num, itr):
                 img = (img[..., :3] * 0.7 + img[..., 3:]*0.3).astype(img.dtype)
                  
                 cv2.imshow("img", img)
-                cv2.waitKey(80) 
+                cv2.waitKey(30) 
         
             solved = done
             step += 1
@@ -102,5 +101,4 @@ def main(env_mode, target_obj_num, itr):
 
 
 if __name__ == '__main__':
-    for i in range(20):
-        main('inference_1', i, 1)
+    main('inference_1', 3, 1)

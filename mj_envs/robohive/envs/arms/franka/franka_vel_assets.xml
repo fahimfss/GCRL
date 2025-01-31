@@ -111,10 +111,10 @@
         <mesh name="headphones_contact7" file="../../../../simhive/object_sim/headphones/contact7.stl" scale="0.7 0.7 0.7"/> 
 
 
-        <mesh name="hammer1" file="../../../../simhive/object_sim/hammer/hammer1.stl" scale="0.75 0.75 0.75"/>
-        <mesh name="hammer2" file="../../../../simhive/object_sim/hammer/hammer2.stl" scale="0.75 0.75 0.75"/>
-        <mesh name="hammer_contact0" file="../../../../simhive/object_sim/hammer/contact0.stl" scale="0.75 0.75 0.75"/>
-        <mesh name="hammer_contact1" file="../../../../simhive/object_sim/hammer/contact1.stl" scale="0.75 0.75 0.75"/>
+        <mesh name="hammer1" file="../../../../simhive/object_sim/hammer/hammer1.stl" scale="0.65 0.65 0.65"/>
+        <mesh name="hammer2" file="../../../../simhive/object_sim/hammer/hammer2.stl" scale="0.65 0.65 0.65"/>
+        <mesh name="hammer_contact0" file="../../../../simhive/object_sim/hammer/contact0.stl" scale="0.65 0.65 0.65"/>
+        <mesh name="hammer_contact1" file="../../../../simhive/object_sim/hammer/contact1.stl" scale="0.65 0.65 0.65"/>
 
 
         <mesh name="bowl" file="../../../../simhive/object_sim/bowl/bowl.stl" scale="0.6 0.6 0.6"/>

@@ -6,145 +6,23 @@ import random
 import cv2 as cv
 import collections
 import numpy as np
-from PIL import Image
 import gymnasium as gym
-import multiprocessing as mp
 from robohive.envs import env_base_0
 
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
 
-import torch
-from torchvision.ops import box_convert
-import groundingdino.datasets.transforms as T 
-from groundingdino.util.inference import load_model, predict
+GOALTYPE_MASK = "G1_Mask"
+GOALTYPE_ONE_HOT = "G2_OH"
+GOALTYPE_3D = "G3_3d"
+GOALTYPE_CLIP = "G4_Clip"
+GOALTYPE_TARGET_STATE = "G5_TS"
+MASK_SIZE_LIMIT = 50
+MASK_SIZE_LIMIT_DIST = 20
+DISTANCE_THRESHOLD = 0.015
+
+class EnvV1(env_base_0.MujocoEnv):
     
-BOX_THRESHOLD = 0.40
-TEXT_THRESHOLD = 0.25
-
-def load_image(image_source, image_size: int):
-    transform = T.Compose(
-        [
-            T.RandomResize(image_size),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
-    image_transformed, _ = transform(image_source, None)
-    return image_transformed
-
-def create_mask(image_source, boxes) -> np.ndarray:
-    """
-    This function creates a mask with white rectangles on a black background,
-    where the rectangles are defined by the bounding boxes.
-
-    Parameters:
-    image_source (np.ndarray): The source image for determining the size of the mask.
-    boxes (torch.Tensor): A tensor containing bounding box coordinates in cxcywh format.
-
-    Returns:
-    np.ndarray: The mask image.
-    """
-    # Get the dimensions of the source image
-    h, w = image_source.shape
-
-    # Scale the boxes to the image dimensions
-    boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
-
-    # Convert boxes from cxcywh to xyxy format
-    xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
-
-    # Create a black mask
-    mask = np.zeros((h, w), dtype=np.uint8)
-    center = (-2000, -2000)
-        
-    if xyxy.size != 0:
-        px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
-        py1, py2 = float(xyxy[1]) / h, float(xyxy[3]) / h
-        
-        if px2 - px1 > 0.8 and py2 - py1 > 0.8:
-            pass
-        elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
-            pass 
-        elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
-            pass 
-        else: 
-            top_left = (int(xyxy[0]), int(xyxy[1]))
-            bottom_right = (int(xyxy[2]), int(xyxy[3]))
-            center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
-            cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
-            white_pixels = np.argwhere(mask == 255)
-        
-            # Calculate the mean of each column (x, y coordinates)
-            centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
-
-            # Convert from (row, col) to (x, y)
-            centroid = (centroid[1], centroid[0])
-
-    return mask, center
-    
-def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
-    model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-    
-    # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-    #                    "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-    count = 0
-    
-    img_shm = mp.shared_memory.SharedMemory(name=mem_name) 
-    img = np.ndarray(img_shape, dtype=np.uint8, buffer=img_shm.buf)
-    h, w, c = img_shape 
-    
-    while True:
-        data = image_queue.get() 
-        if data == 'close':
-            img_shm.close()
-            return 
-        target_name = data  
-        
-        pil_image = Image.fromarray(img.copy())   
-        t1 = time.time()
-        boxes, logits, phrases = predict(
-            model=model,
-            image=load_image(pil_image, [w, h]),
-            caption=target_name,
-            box_threshold=BOX_THRESHOLD,
-            text_threshold=TEXT_THRESHOLD
-        ) 
-        t2 = time.time() 
-        count += 1 
-        if logits.nelement() > 0:
-            _, indices = torch.max(logits, dim = 0)
-            boxes = boxes.numpy()
-            boxes = boxes[indices]
-        mask_queue.put((boxes, t2 - t1, count))
-
-def is_gdino_accurate(gt_pos, gdino_pos, dist, image_width, image_height):
-    mlt = (-0.5 * dist) + 1.5 
-    acceptable_dist = (image_width / 7.5) * mlt 
-    if isinstance(acceptable_dist, np.ndarray):
-        acceptable_dist = acceptable_dist[0]
-    distance = math.sqrt((gt_pos[0] - gdino_pos[0])**2 + (gt_pos[1] - gdino_pos[1])**2)
-    
-    if gdino_pos[0] == -2000 and gdino_pos[1] == -2000:
-        w_tol = image_width * 0.025
-        h_tol = image_height * 0.025
-        if gt_pos[0] < w_tol and gt_pos[0] > image_width - w_tol and gt_pos[1] < h_tol and gt_pos[1] > image_height - h_tol:
-            # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist, "Out of bounds")
-            return True
-        return False
-
-    # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist)
-    return distance < acceptable_dist
-
-class EnvV0(env_base_0.MujocoEnv):
-    DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
-    
-    DEFAULT_PROPRIO_KEYS = ['qp_robot', 'prev_action']
-    
-    BOX_THRESHOLD = 0.4
-    TEXT_THRESHOLD = 0.25
-
     def __init__(self, model_path, obsd_model_path=None, seed=None, **kwargs):
         gym.utils.EzPickle.__init__(self, model_path, obsd_model_path, seed, **kwargs)
         super().__init__(model_path=model_path, obsd_model_path=obsd_model_path, seed=seed)
@@ -161,54 +39,36 @@ class EnvV0(env_base_0.MujocoEnv):
                image_height=480,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
-               reward_mode = "mask_size",   # "distance", "mask_size"
-               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
-               mask_delay_type = "none",    # "none", "n_step", "sequential"
-               mask_delay_steps = 2,
-               obs_keys=DEFAULT_OBS_KEYS,
-               proprio_keys=DEFAULT_PROPRIO_KEYS,
+               reward_mode = "distance",    # "distance", "mask_size"
+               goal_type = GOALTYPE_MASK,     
                ofd_index=0,
                **kwargs,
         ):
 
-        # ids 
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
-        self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
+        self.center_obj_range = np.array([[-0.15, 0.15], [0.27, 0.43]])
         self.IMAGE_WIDTH = image_width
         self.IMAGE_HEIGHT = image_height  
-        self.fixed_positions = None
         self.cam_init = True
         self._setup_camera() 
-        self.current_image = np.ones((image_height, image_width, 4), dtype=np.uint8) 
-        self.mask_size = 0  
-        self.mask_size_counter = 0
-        self.single_touch = 0
-        
+        self.goal_type = goal_type
         self.target_x, self.target_y = 0, 0
         self.target_r = 0
         self.camera_matrix = None
         self.current_mask = None
-        self.gdino_time = 0
-        self.gdino_step = 0
-        self.gdino_error = 0
-        self.gdino_num_accurate = 0
-        self.gdino_accuracy = 0
-        self.gs = 0
         self.distance = 1.0
-        self.TM = time.time()
         self.prev_action = np.array([0] * self.sim.model.nu)
-        
         self.env_mode = env_mode
-        self.reward_mode = reward_mode
-        self.mask_type = mask_type
-        self.mask_delay_type = mask_delay_type
-        self.mask_delay_steps = mask_delay_steps
-        
+        self.reward_mode = reward_mode 
+        self.target_name = "red apple"
+        self.mask_size = 0  
+        self.mask_size_counter = 0
+ 
         if reward_mode == "distance":
             weighted_reward_keys = {
                 "distance": -1.0, 
                 "contact": 0.,
-                'penalty': 0.1,
+                'penalty': 0.,
                 'mask_size': 0.,
                 "done": 5.,
             }
@@ -217,105 +77,115 @@ class EnvV0(env_base_0.MujocoEnv):
                 "distance": 0., 
                 "contact": 0.,
                 'penalty': 1.,
-                'mask_size': 0.9,
+                'mask_size': 1.,
                 "done": 5.,
             }
-            
-        if self.mask_type == "gdino_sync":
-            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-            #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-            
-        elif self.mask_type == "gdino_async":
-            self.image_queue = mp.Queue()
-            self.mask_queue = mp.Queue()
-            
-            img_shape = (self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3)
-            original_array = np.zeros(img_shape, dtype=np.uint8)
-            self.img_shm = mp.shared_memory.SharedMemory(create=True, size=original_array.nbytes)
-            self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
-            
-            self.mask_process = mp.Process(target=async_g_dino, args=(img_shape, self.img_shm.name, self.image_queue, self.mask_queue))
-            # async_g_dino(img_shape, mem_name, image_queue, mask_queue):
-            self.mask_process.start()
-            self.images_sent = 0
-            self.masks_recieved = 0
-                
-        if self.mask_delay_type == "n_step":
-            self.mask_step = -1
-        
-        self.target_name = "apple"
         
         self.objects = {
-            'object_1': 'red apple',
-            'object_2': 'green block',
-            'object_3': 'chocolate donut',
-            'object_4': 'glass flask jar',
-            'object_5': 'yellow toy duck',
-            'object_6': 'banana',
-            'object_7': 'purple alarm clock',
-            'object_8': 'cup',
-            'object_9': 'water bottle',
-            'object_10': 'light bulb',
-            'object_11': 'wine glass',
-            'object_12': 'copper bowl',
-            'object_13': 'silver headphone',
-            'object_14': 'hammer',
-            'object_15': 'camera',
-            'object_16': 'stapler',
-            'object_17': 'sphere',
-            'object_18': 'train',
-            'object_19': 'teapot',
-            'object_20': 'eyeglasses',
+            #site_name: object name, (width_scale, height_scale), (width_offset, height_offset)
+            'object_1': ('red apple', (1.25, 1.35), (0, -0.03)),
+            'object_2': ('green block', (1.1, 1.1), (0, -0.02)),
+            'object_3': ('chocolate donut', (1.1, 1.1), (0, 0)),
+            'object_4': ('glass flask jar', (1.1, 1.5), (0, -0.03)),
+            'object_5': ('yellow toy duck', (1.4, 1.3), (0, -0.02)),
+            'object_6': ('banana', (1.3, 1.7), (-0.02, 0)),
+            'object_7': ('purple alarm clock', (1.4, 1.4), (0, -0.03)),
+            'object_8': ('cup', (1.4, 1.5), (0, -0.04)),
+            'object_9': ('water bottle', (1.1, 1.4), (0, 0)),
+            'object_10': ('light bulb', (1.4, 1.1), (0, 0)),
+            'object_11': ('wine glass', (1.1, 1.35), (0, 0)),
+            'object_12': ('copper bowl', (1.35, 1.2), (0, -0.02)),
+            'object_13': ('silver headphone', (1.2, 1.2), (0, 0)),
+            'object_14': ('hammer', (1.1, 1.4), (-0.02, -0.02)),
+            'object_15': ('camera', (1.45, 1.1), (0, 0)),
+            'object_16': ('stapler', (1.45, 1), (0, 0)),
+            'object_17': ('egg', (1, 1), (0, 0)),
+            'object_18': ('train', (1.4, 1), (0, 0)),
+            'object_19': ('teapot', (1.4, 1.3), (0, 0)),
+            'object_20': ('eyeglasses', (1.4, 1.2), (0, 0))
         }
         
         self.ofd = {
-            0: [0, 1, 2, 3, 15],
-            1: [4, 5, 6, 7, 16],
-            2: [8, 9, 10, 11, 17],
-            3: [12, 13, 14, 18, 19],
-            4: [0, 4, 8, 12, 1],
-            5: [1, 5, 9, 13, 17],
-            6: [2, 6, 10, 14, 18],
-            7: [3, 7, 11, 15, 19],
-            8: [0, 5, 8, 16, 2],
-            9: [1, 6, 9, 11, 18],
-            10: [2, 4, 10, 12, 17],
-            11: [3, 5, 14, 19, 8],
-            12: [0, 9, 11, 13, 16],
-            13: [1, 7, 12, 15, 18],
-            14: [2, 10, 14, 16, 19],
-        }
-        
+            0: [2, 1, 0, 11, 12],
+            1: [15, 18, 10, 13, 9],
+            2: [3, 16, 6, 5, 19],
+            3: [4, 14, 17, 7, 8],
+            4: [9, 4, 18, 13, 6],
+            5: [12, 2, 11, 5, 0],
+            6: [16, 17, 19, 7, 8],
+            7: [10, 15, 14, 1, 3],
+            8: [9, 5, 19, 11, 18],
+            9: [0, 16, 10, 14, 2],
+            10: [8, 13, 12, 17, 4],
+            11: [3, 1, 15, 6, 7],
+            12: [1, 5, 15, 16, 13],
+            13: [8, 7, 9, 6, 4],
+            14: [12, 19, 0, 18, 10],
+            15: [3, 17, 2, 14, 11],
+            16: [11, 6, 7, 16, 13],
+            17: [3, 4, 1, 14, 5],
+            18: [19, 18, 0, 9, 8],
+            19: [12, 17, 10, 2, 15]
+        } 
+ 
         self.ofd_index = ofd_index
-        print('ofd_index:', ofd_index)
+        
+        self.filename = f'/home/fahim/Projects/RLC/scritps/images/100.png'
 
         self.TS = list(self.objects.keys())
-        self.TN = list(self.objects.values())
-
+        self.TN = []
+        self.mask_scale = []
+        self.mask_offset = []
+        for item in self.objects.values():
+            self.TN.append(item[0])
+            self.mask_scale.append(item[1])
+            self.mask_offset.append(item[2]) 
+        
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
-        self.r = 2
+        self.r = 0
         self.target_site_name = self.TS[0]
+        self.current_mask_scale = (1, 1)
+        self.current_mask_offset = (0, 0)
         
         if 'target_obj_num' in kwargs:
             self.target_obj_num = kwargs['target_obj_num'] 
             kwargs.pop('target_obj_num')
-            
-        if 'step_time' in kwargs:
-            self.step_time = kwargs['step_time'] 
-            kwargs.pop('step_time')
-        else:
-            self.step_time = None
 
-        super()._setup(obs_keys=obs_keys,
-                       proprio_keys=proprio_keys,
+        if self.goal_type == GOALTYPE_MASK:
+            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 4), dtype=np.uint8) 
+            self.obs_keys = ['qp_robot', 'prev_action']
+            self.proprio_keys = self.obs_keys.copy()
+        elif self.goal_type == GOALTYPE_ONE_HOT:
+            self.oh_vec = np.array([0.0] * 20)
+            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
+            self.obs_keys = ['qp_robot', 'prev_action', 'one_hot']
+            self.proprio_keys = self.obs_keys.copy()
+        elif self.goal_type == GOALTYPE_3D:
+            self.target_3d_pos = np.array([0.0] * 3)
+            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
+            self.obs_keys = ['qp_robot', 'prev_action', '3d_pos']
+            self.proprio_keys = self.obs_keys.copy()
+        elif self.goal_type == GOALTYPE_CLIP:
+            self.clip_embeddings = np.load('gt_targets/embeddings.npy')
+            self.current_clip_embedding = self.clip_embeddings[0].copy()
+            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
+            self.obs_keys = ['qp_robot', 'prev_action', 'clip_embedding']
+            self.proprio_keys = self.obs_keys.copy()
+        elif self.goal_type == GOALTYPE_TARGET_STATE:
+            paths = [f'gt_targets/{i}.png' for i in range(20)]
+            imgs = [cv.imread(p) for p in paths]
+            self.target_state_images = np.array(imgs)    
+            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 6), dtype=np.uint8) 
+            self.obs_keys = ['qp_robot', 'prev_action']
+            self.proprio_keys = self.obs_keys.copy()
+        
+        super()._setup(obs_keys=self.obs_keys,
+                       proprio_keys=self.proprio_keys,
                        weighted_reward_keys=weighted_reward_keys,
                        reward_mode="dense",
                        frame_skip=frame_skip,
                        **kwargs)
         self.init_qpos[:] = self.sim.model.key_qpos[0].copy()
-
 
     def get_obs_dict(self, sim):
         obs_dict = {}
@@ -328,6 +198,14 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
         obs_dict['mask_size'] = np.array([self.mask_size])  
+        
+        if self.goal_type == GOALTYPE_ONE_HOT:
+            obs_dict['one_hot'] = self.oh_vec
+        elif self.goal_type == GOALTYPE_3D:
+            self.target_3d_pos = sim.data.site_xpos[self.target_sid]
+            obs_dict['3d_pos'] = self.target_3d_pos
+        elif self.goal_type == GOALTYPE_CLIP: 
+            obs_dict['clip_embedding'] = self.current_clip_embedding
  
         self.current_observation = self.get_observation()
 
@@ -360,34 +238,35 @@ class EnvV0(env_base_0.MujocoEnv):
         self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
-
-        # if contact == 1:
-        #     self.single_touch += 1
-        #     if self.single_touch == 1:
-        #         print('First touch!')
-        # elif contact == 2:
-        #     self.single_touch += 1
-        #     print('Second touch!') 
         
         mask_size = int(self.mask_size * 100)
-        if mask_size >= 55:
-            self.mask_size_counter += 1
-        
-        done = np.array([self.mask_size_counter]) == 5
+        if self.reward_mode == 'mask_size': 
+            if mask_size >= MASK_SIZE_LIMIT:
+                self.mask_size_counter += 1
+            done_1 = np.array([self.mask_size_counter]) == 5
+            done_2 = self.mask_size_counter == 5
+        else:
+            if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
+                done_1 = np.full((1,), True, dtype=np.bool_)
+                done_2 = True
+            else:
+                done_1 = np.full((1,), False, dtype=np.bool_)
+                done_2 = False
+                
              
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
             ('penalty', np.array([-1])),  
             ('mask_size',  mask_size_reward),
-            ('done', done),  
+            ('done', done_1),  
         )) 
          
         if self.env_mode == "train":
             rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
         else:
-            rwd_dict['dense'] = 1.0 if self.mask_size_counter == 5 else 0
-            rwd_dict['done'] = self.mask_size_counter == 5
+            rwd_dict['dense'] = 1.0 if done_2 else 0
+            rwd_dict['done'] = done_2
         
         return rwd_dict
     
@@ -415,23 +294,9 @@ class EnvV0(env_base_0.MujocoEnv):
         # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
-        self.gdino_error = 0
-        self.gdino_num_accurate = 0
-        self.gdino_accuracy = 0
         self.distance = 1.0
-        self.gs = 0
-        self.mask_size_counter = 0
-        self.single_touch = 0
 
-        if self.mask_delay_type == "n_step":
-            self.mask_step = -1
-        
-        if self.mask_type == "gdino_async":
-            while(self.images_sent > self.masks_recieved):
-                self.mask_queue.get()
-                self.masks_recieved += 1
-            self.images_sent = 0
-            self.masks_recieved = 0
+        self.mask_size_counter = 0 
         
         ofd_items = self.ofd[self.ofd_index]
         train_items = list(set(range(20)) - set(ofd_items))
@@ -442,11 +307,21 @@ class EnvV0(env_base_0.MujocoEnv):
             number = random.choice(ofd_items) 
         else:
             number = self.target_obj_num 
+            
+        self.filename = f'/home/fahim/Projects/RLC/scritps/images/{number}.png'
              
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number] 
+        self.current_mask_scale = self.mask_scale[number]
+        self.current_mask_offset = self.mask_offset[number]
+        
+        if self.goal_type == GOALTYPE_ONE_HOT:
+            self.oh_vec = np.array([0.0] * 20)
+            self.oh_vec[number] = 1.0
+        if self.goal_type == GOALTYPE_TARGET_STATE:
+            self.current_target_state_image = self.target_state_images[number]
         
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
  
@@ -460,12 +335,9 @@ class EnvV0(env_base_0.MujocoEnv):
             
             for obj_name in self.TS:
                 if obj_name == self.target_site_name:
-                    if self.env_mode == "inference_1" or self.env_mode == "inference_3":
-                        x_pos = 0
-                        y_pos = 0.35
-                    else:
-                        x_pos = random.uniform(-0.03, 0.03)
-                        y_pos = 0.35 + random.uniform(-0.02, 0.02)
+                    x_pos = -0.02
+                    y_pos = 0.31
+
                     self.place_object(obj_name, reset_qpos, x_pos, y_pos)
                     
                     self.target_x = x_pos
@@ -554,7 +426,7 @@ class EnvV0(env_base_0.MujocoEnv):
     #setting a boundary of virtual box such that the arm will not accidentally
     def check_collision(self):
         """ Check if any joint is out of the defined boundary """
-        if "ur10e" in self.sim.model.name: ## BOUNDARIES FOR UR10eEnv-v0
+        if "ur10e" in self.sim.model.name:
             x_min, x_max = -1.5, 1.5
             y_min, y_max = -1.7, 1.5
             z_min, z_max = 0.85, 2.23
@@ -607,39 +479,22 @@ class EnvV0(env_base_0.MujocoEnv):
         self.save_state()
         self.prev_action = a
  
-        if self.single_touch >= 1000:
-            print('hard-coded')
-            self.fixed_positions = self.sim.data.qpos[:self.sim.model.nu].copy()
-            self.fixed_positions[-1] = 1
-            a[-1] = 1
 
-            self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = self.fixed_positions,
-                                        dt = self.dt,
-                                        render_cbk=self.mj_render if self.mujoco_render_frames else None)
-        else:
-            a = np.clip(a, self.action_space.low, self.action_space.high)
-            self.fixed_positions = None
+        a = np.clip(a, self.action_space.low, self.action_space.high)
 
-            last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
-            if self.robot_name == 'franka' and hasattr(self, 'last_ctrl'):
-                last_pos[-1] = self.last_ctrl[-1]
-                
-            self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = last_pos,
-                                        dt = self.dt,
-                                        render_cbk=self.mj_render if self.mujoco_render_frames else None)
+        last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
+        if self.robot_name == 'franka' and hasattr(self, 'last_ctrl'):
+            last_pos[-1] = self.last_ctrl[-1]
+            
+        self.last_ctrl = self.robot.step(ctrl_desired=a,
+                                    last_qpos = last_pos,
+                                    dt = self.dt,
+                                    render_cbk=self.mj_render if self.mujoco_render_frames else None)
 
 
         if self.check_collision():
             # print("Collision detected, reverting action")
             self.restore_state()
-            
-        if self.step_time: 
-            dt = time.time() - self.TM 
-            if dt < self.step_time: 
-                time.sleep(self.step_time - dt)
-            self.TM = time.time()
      
         self.final_image = self.current_image
 
@@ -661,104 +516,36 @@ class EnvV0(env_base_0.MujocoEnv):
                                                camera_id=camera, depth = False)) 
 
         rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB)
+        cv.imwrite(self.filename, rgb)
+        time.sleep(5)
+         
+        mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
+        x, y = int(self.target_x), int(self.target_y)
+        o1, o2 = self.current_mask_offset
+        o1, o2 = int(o1 * self.IMAGE_WIDTH), int(o2 * self.IMAGE_HEIGHT)
+        x, y = x + o1, y + o2
         
-        if self.mask_type == "ground_truth":
-            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
-            x, y = int(self.target_x), int(self.target_y)
-            half_side = int(max(self.r, 2))
-            if half_side < 1000:
-                cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
+        half_side = int(max(self.r, 2))
+        if half_side < 1000:
+            hs1 = int(half_side * self.current_mask_scale[0]) 
+            hs2 = int(half_side * self.current_mask_scale[1])
+            cv.rectangle(mask, (x - hs1, y - hs2), (x + hs1, y + hs2), 255, thickness=-1)
 
+        self.current_mask = mask
 
-            if self.mask_delay_type == "none":
-                self.current_mask = mask
-            elif self.mask_delay_type == "n_step":
-                if self.mask_step == -1:
-                    self.current_mask = mask.copy()
-                    self.saved_mask = mask.copy()
-                    self.mask_step = 1
-                else:
-                    if self.mask_step == 0:
-                        self.current_mask = self.saved_mask
-                        self.saved_mask = mask.copy()
-                        self.mask_step = self.mask_delay_steps
-                self.mask_step -= 1
-        elif self.mask_type == "gdino_sync":
-            pil_image = Image.fromarray(rgb)
-            t1 = time.time()
-            boxes, logits, phrases = predict(
-                model=self.mask_model,
-                image=load_image(pil_image, [self.IMAGE_WIDTH, self.IMAGE_HEIGHT]),
-                caption=self.target_name,
-                box_threshold=BOX_THRESHOLD,
-                text_threshold=TEXT_THRESHOLD
-            )
-            t2 = time.time() 
-            self.gdino_step += 1
-            self.gdino_time = t2 - t1
-            if logits.nelement() > 0:
-                _, indices = torch.max(logits, dim = 0)
-                boxes = boxes.numpy()
-                boxes = boxes[indices] 
-            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-            
-            gt_center = int(self.target_x), int(self.target_y)
-            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
-            self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
-            
-            # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
-
-        elif self.mask_type == "gdino_async":
-            if self.current_mask is None:
-                np.copyto(self.img_arr, rgb)
-                self.image_queue.put(self.target_name)
-                self.images_sent += 1
-                
-                boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
-                mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-                
-                self.masks_recieved += 1
-            else:
-                if self.images_sent == 1:
-                    np.copyto(self.img_arr, rgb)
-                    self.image_queue.put(self.target_name)
-                    self.images_sent += 1
-                if not self.mask_queue.empty():
-                    boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
-                    mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                    self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-                    
-                    self.masks_recieved += 1
-                    
-                    np.copyto(self.img_arr, rgb)
-                    self.image_queue.put(self.target_name)
-                    self.images_sent += 1
-                    
-            gt_center = int(self.target_x), int(self.target_y)
-            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
-            self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
-            
-            # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time, "  target: ", gt_center)
-            
-        #define the grasping rectangle
-        x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
-        
-        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
+        x1, x2 = int(self.IMAGE_WIDTH * 0.20), int(self.IMAGE_WIDTH * 0.80)
+        y1, y2 = int(self.IMAGE_HEIGHT * 0.30), int(self.IMAGE_HEIGHT * 0.80)
         
         roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
         total_pixels = float(roi.size)
         self.mask_size = (white_pixels / total_pixels)  
 
-        self.current_image = np.dstack((rgb, self.current_mask))
-         
+        if self.goal_type == GOALTYPE_MASK:
+            self.current_image = np.dstack((rgb, self.current_mask))
+        elif self.goal_type == GOALTYPE_TARGET_STATE:
+            self.current_image = np.dstack((rgb, self.current_target_state_image))
+        
         return np.array(np.fliplr(np.flipud(rgb)))
 
     def render(self, mode='rgb_array'):
@@ -860,7 +647,6 @@ class EnvV0(env_base_0.MujocoEnv):
         return (2.0/(1+np.exp(-perc*10.0))) - 1.0 
     
     def close(self):
-        self.image_queue.put("close")
-        self.mask_process.join()
+        pass
     
     

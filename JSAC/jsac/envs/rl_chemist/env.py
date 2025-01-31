@@ -11,17 +11,19 @@ from jsac.helpers.utils import render_interactive
 class RLC_Env(gym.Wrapper):
     def __init__(self, 
                  env_name,  
-                 image_history=2, 
-                 image_width=128, 
-                 image_height=128, 
+                 image_history=3, 
+                 image_width=120, 
+                 image_height=90, 
                  env_mode="train",
-                 mask_type="ground_truth",
                  target_obj_num=-1,
                  mask_delay_type="none",
                  mask_delay_steps=2,
-                 step_time=None,
                  video_path=".",
+                 goal_type="G1_Mask",
+                 reward_mode="distance",
+                 inference_model="none",
                  render_interactive=False,
+                 step_time=0,
                  ofd_index=0):
 
         if target_obj_num >= 0:
@@ -29,21 +31,23 @@ class RLC_Env(gym.Wrapper):
                                       env_mode=env_mode, 
                                       target_obj_num=target_obj_num))
         else:
-            if step_time:
+            if inference_model is not "none":
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
-                                        env_mode=env_mode,
-                                        mask_type=mask_type,
-                                        mask_delay_type=mask_delay_type,
-                                        mask_delay_steps=mask_delay_steps,
-                                        step_time=step_time,
-                                        ofd_index=ofd_index))
+                                            env_mode=env_mode, 
+                                            mask_delay_type=mask_delay_type, 
+                                            mask_delay_steps=mask_delay_steps, 
+                                            ofd_index=ofd_index,
+                                            reward_mode=reward_mode,
+                                            step_time=step_time,
+                                            inference_model=inference_model))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
-                                        env_mode=env_mode,
-                                        mask_type=mask_type,
-                                        mask_delay_type=mask_delay_type,
-                                        mask_delay_steps=mask_delay_steps,
-                                        ofd_index=ofd_index))
+                                            env_mode=env_mode, 
+                                            mask_delay_type=mask_delay_type, 
+                                            mask_delay_steps=mask_delay_steps, 
+                                            ofd_index=ofd_index,
+                                            reward_mode=reward_mode,
+                                            goal_type=goal_type))
 
         self._env_name = env_name
         self._image_history = image_history
@@ -51,6 +55,12 @@ class RLC_Env(gym.Wrapper):
         
         state = self.env.reset() 
         channels = state['image'].shape[-1]
+        
+        self.goal_type = goal_type
+        if goal_type == 'G5_TS':
+            channels = (image_history + 1) * 3
+            self._image_history -= 1
+        
         self._single_image_shape = (image_height, image_width, channels)
         self._image_shape = (image_height, image_width, channels * self._image_history)
         self._image_buffer = deque([], maxlen=self._image_history)
@@ -87,7 +97,11 @@ class RLC_Env(gym.Wrapper):
         prop = ob['vector']
         done = terminated 
         
-        msk = (new_img[:, :, 3:4].squeeze(-1),)*3
+        extra = None
+        if self.goal_type == 'G1_Mask':
+            extra = (new_img[:, :, 3:4].squeeze(-1),)*3
+        elif self.goal_type == 'G5_TS':
+            extra = (new_img[:, :, 3:6])
 
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
@@ -97,7 +111,7 @@ class RLC_Env(gym.Wrapper):
         # print(info['prompt'])
         
         if self._create_video: 
-            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, msk)
+            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, extra)
         
         if truncated:
             info['truncated'] = True
@@ -110,8 +124,13 @@ class RLC_Env(gym.Wrapper):
                 self._video_buffer = []
                 
         new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
-        self._image_buffer.append(new_img)
-        self._latest_image = np.concatenate(self._image_buffer, axis=-1)
+        if self.goal_type == 'G5_TS':
+            buffer = self._image_buffer.copy() + new_img
+            self._latest_image = np.concatenate(buffer, axis=-1)
+            self._image_buffer.append(new_img[:, :, 0:3])
+        else:
+            self._image_buffer.append(new_img)
+            self._latest_image = np.concatenate(self._image_buffer, axis=-1)
  
         return (self._latest_image, prop), reward, done, info 
 
@@ -126,32 +145,47 @@ class RLC_Env(gym.Wrapper):
         new_img = ob['image']
         prop = ob['vector']
         
-        msk = (new_img[:, :, 3:4].squeeze(-1),)*3
+        extra = None
+        if self.goal_type == 'G1_Mask':
+            extra = (new_img[:, :, 3:4].squeeze(-1),)*3
+        elif self.goal_type == 'G5_TS':
+            extra = (new_img[:, :, 3:6])
         
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1)) 
+        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(extra, axis=-1)), axis=1)) 
         # cv2.waitKey(1)
         
         if create_vid: 
             print("Video will be created. ")
             self._create_video = True
             self._video_buffer = []
-            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, msk)
+            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, extra)
         
         new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
         for _ in range(self._image_buffer.maxlen):
-            self._image_buffer.append(new_img)
-        self._latest_image = np.concatenate(self._image_buffer, axis=-1)
+            if self.goal_type == 'G5_TS':
+                self._image_buffer.append(new_img[:, :, 0:3])
+            else:
+                self._image_buffer.append(new_img)
+        
+        if self.goal_type == 'G5_TS':
+            buffer = self._image_buffer.copy() + new_img
+            self._latest_image = np.concatenate(buffer, axis=-1)
+        else:
+            self._latest_image = np.concatenate(self._image_buffer, axis=-1)
         
         self._reset = True
         
         return (self._latest_image, prop)
     
-    def add_frame_to_video_buffer(self, text, new_img, msk): 
+    def add_frame_to_video_buffer(self, text, new_img, extra): 
         new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
-        frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], np.stack(msk, axis=-1)), axis=1).copy()
+        if extra is not None:
+            frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], np.stack(extra, axis=-1)), axis=1).copy()
+        else:
+            frame = new_img[:, :, 0:3][..., ::-1]
         
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 1
@@ -160,15 +194,12 @@ class RLC_Env(gym.Wrapper):
         
         (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
 
-        # Create a black image for the text
-        banner_height = text_height + baseline + 20  # Adjust height for padding
+        banner_height = text_height + baseline + 20
         banner = np.zeros((banner_height, frame.shape[1], 3), dtype=np.uint8)
-
-        # Calculate the center position for the text
+        
         center_x = (banner.shape[1] - text_width) // 2
-        center_y = (banner.shape[0] + text_height) // 2  # Adjust for baseline
+        center_y = (banner.shape[0] + text_height) // 2
 
-        # Add text to the black image
         cv2.putText(banner, text, (center_x, center_y), font, font_scale, font_color, thickness)
         
         combined_image = np.vstack((frame, banner))
