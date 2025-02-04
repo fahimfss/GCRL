@@ -48,7 +48,7 @@ def parse_args():
     
     parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
     parser.add_argument('--task_name', default='gt_0', type=str)
-    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
+    parser.add_argument('--goal_type', default=GOALTYPE_ONE_HOT, type=str)
     parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
@@ -58,11 +58,11 @@ def parse_args():
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=100_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=20_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=100_000, type=int)
+    parser.add_argument('--env_steps', default=20_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -126,7 +126,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.mode}_{sync_mode}_{args.task_name}'
+    args.name = f'{args.env_name}_{args.mode}_{sync_mode}_{args.task_name}_{args.goal_type}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -196,6 +196,10 @@ def main(seed=-1, env_name=None):
     args.proprioception_shape = env.proprioception_space.shape
     args.action_shape = env.action_space.shape
     args.env_action_space = env.action_space
+    
+    print(f'Image shape: {args.image_shape}')
+    print(f'Proprioception shape: {args.proprioception_shape}')
+    print(f'Action shape: {args.action_shape}')
 
     if args.sync_mode:
         sync_queue = None
