@@ -58,11 +58,11 @@ def parse_args():
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=100_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=100_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -227,7 +227,7 @@ def main(seed=-1, env_name=None):
 
     update_paused = True
     time.sleep(5)
-    state = env.reset(create_vid=True)
+    state = env.reset(create_vid=False)
     
     first_step = True
 
@@ -248,13 +248,7 @@ def main(seed=-1, env_name=None):
         state = next_state
 
         if done or 'truncated' in info: 
-            if args.mask_type == "gt_gdino_async" and env.total_steps >= args.gt_steps:
-                state = env.reset(create_vid=True, set_gdino_async=True)
-                args.gt_steps = args.env_steps * 2
-                eval_queue_1.put('start_gdino_async')
-                eval_queue_2.put('start_gdino_async')
-            else:
-                state = env.reset(create_vid=False)
+            state = env.reset(create_vid=False)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time

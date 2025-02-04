@@ -17,9 +17,9 @@ GOALTYPE_ONE_HOT = "G2_OH"
 GOALTYPE_3D = "G3_3d"
 GOALTYPE_CLIP = "G4_Clip"
 GOALTYPE_TARGET_STATE = "G5_TS"
-MASK_SIZE_LIMIT = 50
-MASK_SIZE_LIMIT_DIST = 20
-DISTANCE_THRESHOLD = 0.015
+MASK_SIZE_LIMIT = 30
+MASK_SIZE_LIMIT_DIST = 30
+DISTANCE_THRESHOLD = 0.1
 
 class EnvV1(env_base_0.MujocoEnv):
     
@@ -63,6 +63,7 @@ class EnvV1(env_base_0.MujocoEnv):
         self.target_name = "red apple"
         self.mask_size = 0  
         self.mask_size_counter = 0
+        self._min_dist = 10000
  
         if reward_mode == "distance":
             weighted_reward_keys = {
@@ -236,6 +237,10 @@ class EnvV1(env_base_0.MujocoEnv):
     
     def get_reward_dict(self, obs_dict):
         self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
+        
+        if self.distance < self._min_dist:
+            self._min_dist = self.distance
+        
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
@@ -292,6 +297,9 @@ class EnvV1(env_base_0.MujocoEnv):
     
     def reset(self, reset_qpos=None, **kwargs): 
         # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
+        print('min dist: ', self._min_dist)
+        self._min_dist = 10000
+        
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
         self.distance = 1.0
@@ -516,8 +524,6 @@ class EnvV1(env_base_0.MujocoEnv):
                                                camera_id=camera, depth = False)) 
 
         rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB)
-        cv.imwrite(self.filename, rgb)
-        time.sleep(5)
          
         mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
         x, y = int(self.target_x), int(self.target_y)
@@ -533,8 +539,11 @@ class EnvV1(env_base_0.MujocoEnv):
 
         self.current_mask = mask
 
-        x1, x2 = int(self.IMAGE_WIDTH * 0.20), int(self.IMAGE_WIDTH * 0.80)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.30), int(self.IMAGE_HEIGHT * 0.80)
+        # x1, x2 = int(self.IMAGE_WIDTH * 0.20), int(self.IMAGE_WIDTH * 0.80)
+        # y1, y2 = int(self.IMAGE_HEIGHT * 0.30), int(self.IMAGE_HEIGHT * 0.80)
+        
+        x1, x2 = 0, self.IMAGE_WIDTH
+        y1, y2 = 0, self.IMAGE_HEIGHT
         
         roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
