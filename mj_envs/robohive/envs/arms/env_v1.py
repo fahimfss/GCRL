@@ -167,18 +167,19 @@ class EnvV1(env_base_0.MujocoEnv):
             self.obs_keys = ['qp_robot', 'prev_action', '3d_pos']
             self.proprio_keys = self.obs_keys.copy()
         elif self.goal_type == GOALTYPE_CLIP:
-            self.clip_embeddings = np.load('gt_targets/embeddings.npy')
+            self.clip_embeddings = np.load('../mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
             self.current_clip_embedding = self.clip_embeddings[0].copy()
             self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
             self.obs_keys = ['qp_robot', 'prev_action', 'clip_embedding']
             self.proprio_keys = self.obs_keys.copy()
         elif self.goal_type == GOALTYPE_TARGET_STATE:
-            paths = [f'gt_targets/{i}.png' for i in range(20)]
+            paths = [f'../mj_envs/robohive/envs/arms/gt_targets/{i}.png' for i in range(20)]
             imgs = [cv.imread(p) for p in paths]
             self.target_state_images = np.array(imgs)    
             self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 6), dtype=np.uint8) 
             self.obs_keys = ['qp_robot', 'prev_action']
             self.proprio_keys = self.obs_keys.copy()
+            self.current_target_state_image = self.target_state_images[0]
         
         super()._setup(obs_keys=self.obs_keys,
                        proprio_keys=self.proprio_keys,
@@ -554,6 +555,8 @@ class EnvV1(env_base_0.MujocoEnv):
             self.current_image = np.dstack((rgb, self.current_mask))
         elif self.goal_type == GOALTYPE_TARGET_STATE:
             self.current_image = np.dstack((rgb, self.current_target_state_image))
+        else:
+            self.current_image = rgb
         
         return np.array(np.fliplr(np.flipud(rgb)))
 

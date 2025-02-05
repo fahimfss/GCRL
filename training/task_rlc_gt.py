@@ -47,8 +47,8 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
-    parser.add_argument('--task_name', default='gt_0', type=str)
-    parser.add_argument('--goal_type', default=GOALTYPE_ONE_HOT, type=str)
+    parser.add_argument('--task_name', default='gt', type=str)
+    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
     parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
@@ -58,11 +58,11 @@ def parse_args():
     parser.add_argument('--mask_delay_steps', default=3, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=20_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=250_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=20_000, type=int)
+    parser.add_argument('--env_steps', default=250_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -80,7 +80,7 @@ def parse_args():
     parser.add_argument('--actor_sync_freq', default=8, type=int)   # Sync mode: False
     
     # encoder
-    parser.add_argument('--spatial_softmax', default=True, action='store_true')    # Mode: img, img_prop
+    parser.add_argument('--spatial_softmax', default=False, action='store_true')    # Mode: img, img_prop
 
     # sac
     parser.add_argument('--temp_lr', default=1e-4, type=float)
@@ -100,7 +100,7 @@ def parse_args():
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
     parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_model_freq', default=200_000, type=int)
+    parser.add_argument('--save_model_freq', default=250_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)

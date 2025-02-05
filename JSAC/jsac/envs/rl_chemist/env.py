@@ -8,6 +8,12 @@ import mujoco
 
 from jsac.helpers.utils import render_interactive
 
+GOALTYPE_MASK = "G1_Mask"
+GOALTYPE_ONE_HOT = "G2_OH"
+GOALTYPE_3D = "G3_3d"
+GOALTYPE_CLIP = "G4_Clip"
+GOALTYPE_TARGET_STATE = "G5_TS"
+
 class RLC_Env(gym.Wrapper):
     def __init__(self, 
                  env_name,  
@@ -19,7 +25,7 @@ class RLC_Env(gym.Wrapper):
                  mask_delay_type="none",
                  mask_delay_steps=2,
                  video_path=".",
-                 goal_type="G1_Mask",
+                 goal_type=GOALTYPE_MASK,
                  reward_mode="distance",
                  inference_model="none",
                  render_interactive=False,
@@ -57,12 +63,16 @@ class RLC_Env(gym.Wrapper):
         channels = state['image'].shape[-1]
         
         self.goal_type = goal_type
-        if goal_type == 'G5_TS':
-            channels = (image_history + 1) * 3
+        if goal_type == GOALTYPE_TARGET_STATE:
+            channel1 = 3
+            channel2 = (self._image_history + 1) * 3
             self._image_history -= 1
+        else:
+            channel1 = channels
+            channel2 = channels * self._image_history
         
-        self._single_image_shape = (image_height, image_width, channels)
-        self._image_shape = (image_height, image_width, channels * self._image_history)
+        self._single_image_shape = (image_height, image_width, channel1)
+        self._image_shape = (image_height, image_width, channel2)
         self._image_buffer = deque([], maxlen=self._image_history)
         self._obs_dim = state['vector'].shape[0] 
         self._action_dim = self.env.action_space.shape[0]
@@ -94,14 +104,15 @@ class RLC_Env(gym.Wrapper):
         ob, reward, terminated, truncated, info = self.env.step(a)
         
         new_img = ob['image']
+
         prop = ob['vector']
         done = terminated 
         
         extra = None
-        if self.goal_type == 'G1_Mask':
-            extra = (new_img[:, :, 3:4].squeeze(-1),)*3
-        elif self.goal_type == 'G5_TS':
-            extra = (new_img[:, :, 3:6])
+        if self.goal_type == GOALTYPE_MASK:
+            extra = np.repeat(new_img[:, :, 3:4], 3, axis=-1)
+        elif self.goal_type == GOALTYPE_TARGET_STATE:
+            extra = new_img[:, :, 3:6]
 
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
@@ -111,7 +122,7 @@ class RLC_Env(gym.Wrapper):
         # print(info['prompt'])
         
         if self._create_video: 
-            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, extra)
+            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img[:,:,0:3], extra)
         
         if truncated:
             info['truncated'] = True
@@ -123,11 +134,18 @@ class RLC_Env(gym.Wrapper):
                 self._create_video = False
                 self._video_buffer = []
                 
-        new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
-        if self.goal_type == 'G5_TS':
-            buffer = self._image_buffer.copy() + new_img
+        if self.goal_type == GOALTYPE_TARGET_STATE:
+            new_img = cv2.resize(new_img[:, :, 0:3], self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+            temp = cv2.resize(extra, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+        else:
+            new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+            
+        if self.goal_type == GOALTYPE_TARGET_STATE:
+            buffer = list(self._image_buffer.copy())
+            buffer.append(new_img)
+            buffer.append(temp)
             self._latest_image = np.concatenate(buffer, axis=-1)
-            self._image_buffer.append(new_img[:, :, 0:3])
+            self._image_buffer.append(new_img)
         else:
             self._image_buffer.append(new_img)
             self._latest_image = np.concatenate(self._image_buffer, axis=-1)
@@ -146,10 +164,10 @@ class RLC_Env(gym.Wrapper):
         prop = ob['vector']
         
         extra = None
-        if self.goal_type == 'G1_Mask':
-            extra = (new_img[:, :, 3:4].squeeze(-1),)*3
-        elif self.goal_type == 'G5_TS':
-            extra = (new_img[:, :, 3:6])
+        if self.goal_type == GOALTYPE_MASK:
+            extra = np.repeat(new_img[:, :, 3:4], 3, axis=-1)
+        elif self.goal_type == GOALTYPE_TARGET_STATE:
+            extra = new_img[:, :, 3:6]
         
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
@@ -161,18 +179,23 @@ class RLC_Env(gym.Wrapper):
             print("Video will be created. ")
             self._create_video = True
             self._video_buffer = []
-            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img, extra)
+            self.add_frame_to_video_buffer(self.env.target_name.title(), new_img[:, :, 0:3], extra)
         
-        new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+        if self.goal_type == GOALTYPE_TARGET_STATE:
+            new_img = cv2.resize(new_img[:, :, 0:3], self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+            temp = cv2.resize(extra, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+        else:
+            new_img = cv2.resize(new_img, self._single_image_shape[0:2][::-1], interpolation=cv2.INTER_AREA)
+            
         for _ in range(self._image_buffer.maxlen):
-            if self.goal_type == 'G5_TS':
-                self._image_buffer.append(new_img[:, :, 0:3])
-            else:
-                self._image_buffer.append(new_img)
+            self._image_buffer.append(new_img)
         
-        if self.goal_type == 'G5_TS':
-            buffer = self._image_buffer.copy() + new_img
+        if self.goal_type == GOALTYPE_TARGET_STATE:
+            buffer = list(self._image_buffer.copy())
+            buffer.append(new_img)
+            buffer.append(temp)
             self._latest_image = np.concatenate(buffer, axis=-1)
+            self._image_buffer.append(new_img)
         else:
             self._latest_image = np.concatenate(self._image_buffer, axis=-1)
         
@@ -181,11 +204,11 @@ class RLC_Env(gym.Wrapper):
         return (self._latest_image, prop)
     
     def add_frame_to_video_buffer(self, text, new_img, extra): 
-        new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
+        
         if extra is not None:
-            frame = np.concatenate((new_img[:, :, 0:3][..., ::-1], np.stack(extra, axis=-1)), axis=1).copy()
+            frame = np.concatenate((new_img[:, :, 0:3], extra), axis=1)
         else:
-            frame = new_img[:, :, 0:3][..., ::-1]
+            frame = new_img
         
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 1
