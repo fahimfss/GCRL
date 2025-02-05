@@ -62,6 +62,7 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                           reward_mode=args['reward_mode'],
                           video_path=args['video_dir'],
                           step_time=step_time,
+                          env_mode=env_mode,
                           ofd_index=args['ofd_index'])
         
         
