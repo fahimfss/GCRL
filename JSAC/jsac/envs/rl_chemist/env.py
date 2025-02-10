@@ -25,9 +25,10 @@ class RLC_Env(gym.Wrapper):
                  mask_delay_type="none",
                  mask_delay_steps=2,
                  video_path=".",
-                 goal_type=GOALTYPE_MASK,
                  reward_mode="distance",
-                 inference_model="none",
+                 goal_type="none",
+                 classifier="none",
+                 inference_type="none",
                  render_interactive=False,
                  step_time=0,
                  ofd_index=0):
@@ -37,7 +38,7 @@ class RLC_Env(gym.Wrapper):
                                       env_mode=env_mode, 
                                       target_obj_num=target_obj_num))
         else:
-            if inference_model is not "none":
+            if inference_type is not "none":
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                             env_mode=env_mode, 
                                             mask_delay_type=mask_delay_type, 
@@ -45,7 +46,8 @@ class RLC_Env(gym.Wrapper):
                                             ofd_index=ofd_index,
                                             reward_mode=reward_mode,
                                             step_time=step_time,
-                                            inference_model=inference_model))
+                                            classifier=classifier,
+                                            inference_type=inference_type))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                             env_mode=env_mode, 
@@ -58,6 +60,7 @@ class RLC_Env(gym.Wrapper):
         self._env_name = env_name
         self._image_history = image_history
         self._video_path = video_path
+        self.classifier=classifier
         
         state = self.env.reset() 
         channels = state['image'].shape[-1]
@@ -109,7 +112,7 @@ class RLC_Env(gym.Wrapper):
         done = terminated 
         
         extra = None
-        if self.goal_type == GOALTYPE_MASK:
+        if self.goal_type == GOALTYPE_MASK or self.classifier != "none":
             extra = np.repeat(new_img[:, :, 3:4], 3, axis=-1)
         elif self.goal_type == GOALTYPE_TARGET_STATE:
             extra = new_img[:, :, 3:6]
@@ -117,8 +120,8 @@ class RLC_Env(gym.Wrapper):
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(msk, axis=-1)), axis=1))
-        # cv2.waitKey(1)
+        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], extra), axis=1)) 
+        # cv2.waitKey(10)
         # print(info['prompt'])
         
         if self._create_video: 
@@ -164,7 +167,7 @@ class RLC_Env(gym.Wrapper):
         prop = ob['vector']
         
         extra = None
-        if self.goal_type == GOALTYPE_MASK:
+        if self.goal_type == GOALTYPE_MASK or self.classifier != "none":
             extra = np.repeat(new_img[:, :, 3:4], 3, axis=-1)
         elif self.goal_type == GOALTYPE_TARGET_STATE:
             extra = new_img[:, :, 3:6]
@@ -172,8 +175,8 @@ class RLC_Env(gym.Wrapper):
         # path = '/home/fahim/project/imgs_dump/'
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
-        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], np.stack(extra, axis=-1)), axis=1)) 
-        # cv2.waitKey(1)
+        # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], extra), axis=1)) 
+        # cv2.waitKey(10)
         
         if create_vid: 
             print("Video will be created. ")
@@ -226,8 +229,8 @@ class RLC_Env(gym.Wrapper):
         cv2.putText(banner, text, (center_x, center_y), font, font_scale, font_color, thickness)
         
         combined_image = np.vstack((frame, banner))
-        # cv2.imshow("w1", combined_image)
-        # cv2.waitKey(1)
+        cv2.imshow("w1", combined_image)
+        cv2.waitKey(1)
         self._video_buffer.append(combined_image) 
 
 
@@ -303,10 +306,10 @@ class RLC_Env(gym.Wrapper):
 ### TEST ENVIRONMENT ###
 
 
-if __name__=="__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
-    args = parser.parse_args()
-    env = RLC_Env(env_name=args.env_name, render_interactive=True) # replace model path accordingly
-    render_interactive(env)
+# if __name__=="__main__":
+#     import argparse
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str, help="Two envs: FrankaEnv-v0, UR10eEnv-v0")
+#     args = parser.parse_args()
+#     env = RLC_Env(env_name=args.env_name, render_interactive=True) # replace model path accordingly
+#     render_interactive(env)

@@ -13,137 +13,18 @@ from robohive.envs import env_base_0
 
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
-
-import torch
-from torchvision.ops import box_convert
-import groundingdino.datasets.transforms as T 
-from groundingdino.util.inference import load_model, predict
+from robohive.envs.arms.gdino import create_mask, g_dino_inference, async_g_dino_inference
     
-BOX_THRESHOLD = 0.40
-TEXT_THRESHOLD = 0.25
+from groundingdino.util.inference import load_model
 
-def load_image(image_source, image_size: int):
-    transform = T.Compose(
-        [
-            T.RandomResize(image_size),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
-    image_transformed, _ = transform(image_source, None)
-    return image_transformed
+MASK_SIZE_LIMIT = 30
+MASK_SIZE_LIMIT_DIST = 30
+DISTANCE_THRESHOLD = 0.1
 
-def create_mask(image_source, boxes) -> np.ndarray:
-    """
-    This function creates a mask with white rectangles on a black background,
-    where the rectangles are defined by the bounding boxes.
-
-    Parameters:
-    image_source (np.ndarray): The source image for determining the size of the mask.
-    boxes (torch.Tensor): A tensor containing bounding box coordinates in cxcywh format.
-
-    Returns:
-    np.ndarray: The mask image.
-    """
-    # Get the dimensions of the source image
-    h, w = image_source.shape
-
-    # Scale the boxes to the image dimensions
-    boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
-
-    # Convert boxes from cxcywh to xyxy format
-    xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
-
-    # Create a black mask
-    mask = np.zeros((h, w), dtype=np.uint8)
-    center = (-2000, -2000)
-        
-    if xyxy.size != 0:
-        px1, px2 = float(xyxy[0]) / w, float(xyxy[2]) / w
-        py1, py2 = float(xyxy[1]) / h, float(xyxy[3]) / h
-        
-        if px2 - px1 > 0.8 and py2 - py1 > 0.8:
-            pass
-        elif px2 - px1 > 0.26 and px2 - px1 < 0.38 and py2 - py1 > 0.18 and py2 - py1 < 0.28 and py1 > 0.72 and py2 > 0.94:
-            pass 
-        elif px2 - px1 > 0.06 and px2 - px1 < 0.15 and py2 - py1 > 0.14 and py2 - py1 < 0.28 and py1 > 0.70 and py2 > 0.88:
-            pass 
-        else: 
-            top_left = (int(xyxy[0]), int(xyxy[1]))
-            bottom_right = (int(xyxy[2]), int(xyxy[3]))
-            center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
-            cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
-            white_pixels = np.argwhere(mask == 255)
-        
-            # Calculate the mean of each column (x, y coordinates)
-            centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
-
-            # Convert from (row, col) to (x, y)
-            centroid = (centroid[1], centroid[0])
-
-    return mask, center
-    
-def async_g_dino(img_shape, mem_name, image_queue, mask_queue):
-    model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-                    "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-    
-    # model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-    #                    "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-    count = 0
-    
-    img_shm = mp.shared_memory.SharedMemory(name=mem_name) 
-    img = np.ndarray(img_shape, dtype=np.uint8, buffer=img_shm.buf)
-    h, w, c = img_shape 
-    
-    while True:
-        data = image_queue.get() 
-        if data == 'close':
-            img_shm.close()
-            return 
-        target_name = data  
-        
-        pil_image = Image.fromarray(img.copy())   
-        t1 = time.time()
-        boxes, logits, phrases = predict(
-            model=model,
-            image=load_image(pil_image, [w, h]),
-            caption=target_name,
-            box_threshold=BOX_THRESHOLD,
-            text_threshold=TEXT_THRESHOLD
-        ) 
-        t2 = time.time() 
-        count += 1 
-        if logits.nelement() > 0:
-            _, indices = torch.max(logits, dim = 0)
-            boxes = boxes.numpy()
-            boxes = boxes[indices]
-        mask_queue.put((boxes, t2 - t1, count))
-
-def is_gdino_accurate(gt_pos, gdino_pos, dist, image_width, image_height):
-    mlt = (-0.5 * dist) + 1.5 
-    acceptable_dist = (image_width / 7.5) * mlt 
-    if isinstance(acceptable_dist, np.ndarray):
-        acceptable_dist = acceptable_dist[0]
-    distance = math.sqrt((gt_pos[0] - gdino_pos[0])**2 + (gt_pos[1] - gdino_pos[1])**2)
-    
-    if gdino_pos[0] == -2000 and gdino_pos[1] == -2000:
-        w_tol = image_width * 0.025
-        h_tol = image_height * 0.025
-        if gt_pos[0] < w_tol and gt_pos[0] > image_width - w_tol and gt_pos[1] < h_tol and gt_pos[1] > image_height - h_tol:
-            # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist, "Out of bounds")
-            return True
-        return False
-
-    # print("\t\t", gt_pos, gdino_pos, distance, acceptable_dist)
-    return distance < acceptable_dist
 
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
-    
     DEFAULT_PROPRIO_KEYS = ['qp_robot', 'prev_action']
-    
-    BOX_THRESHOLD = 0.4
-    TEXT_THRESHOLD = 0.25
 
     def __init__(self, model_path, obsd_model_path=None, seed=None, **kwargs):
         gym.utils.EzPickle.__init__(self, model_path, obsd_model_path, seed, **kwargs)
@@ -162,9 +43,8 @@ class EnvV0(env_base_0.MujocoEnv):
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
-               mask_type = "ground_truth",  # "ground_truth", "gdino_sync", "gdino_async"
-               mask_delay_type = "none",    # "none", "n_step", "sequential"
-               mask_delay_steps = 2,
+               classifier = "gdino",        # "gdino"
+               inference_type = "sync",     # "sync", "async"
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
                ofd_index=0,
@@ -173,21 +53,15 @@ class EnvV0(env_base_0.MujocoEnv):
 
         # ids 
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
-        self.center_obj_range = np.array([[-0.16, 0.16], [0.25, 0.45]])
+        self.center_obj_range = np.array([[-0.15, 0.15], [0.29, 0.41]])
         self.IMAGE_WIDTH = image_width
         self.IMAGE_HEIGHT = image_height  
         self.fixed_positions = None
         self.cam_init = True
         self._setup_camera() 
         self.current_image = np.ones((image_height, image_width, 4), dtype=np.uint8) 
-        self.mask_size = 0  
-        self.mask_size_counter = 0
-        self.single_touch = 0
-        
-        self.target_x, self.target_y = 0, 0
-        self.target_r = 0
-        self.camera_matrix = None
         self.current_mask = None
+        self.target_x, self.target_y = 0, 0
         self.gdino_time = 0
         self.gdino_step = 0
         self.gdino_error = 0
@@ -195,20 +69,20 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_accuracy = 0
         self.gs = 0
         self.distance = 1.0
+        self.mask_size = 0
         self.TM = time.time()
         self.prev_action = np.array([0] * self.sim.model.nu)
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
-        self.mask_type = mask_type
-        self.mask_delay_type = mask_delay_type
-        self.mask_delay_steps = mask_delay_steps
+        self.classifier = classifier
+        self.inference_type = inference_type 
         
         if reward_mode == "distance":
             weighted_reward_keys = {
                 "distance": -1.0, 
                 "contact": 0.,
-                'penalty': 0.1,
+                'penalty': 0,
                 'mask_size': 0.,
                 "done": 5.,
             }
@@ -217,17 +91,14 @@ class EnvV0(env_base_0.MujocoEnv):
                 "distance": 0., 
                 "contact": 0.,
                 'penalty': 1.,
-                'mask_size': 0.9,
+                'mask_size': 1,
                 "done": 5.,
             }
             
-        if self.mask_type == "gdino_sync":
-            # self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py", 
-            #                              "../GroundingDINO/asset/groundingdino_swint_ogc.pth")
-            self.mask_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
-                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-            
-        elif self.mask_type == "gdino_async":
+        if self.classifier == "gdino" and self.inference_type=="sync":
+            self.classifier_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+                                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+        elif self.classifier == "gdino" and self.inference_type=="async":
             self.image_queue = mp.Queue()
             self.mask_queue = mp.Queue()
             
@@ -236,57 +107,61 @@ class EnvV0(env_base_0.MujocoEnv):
             self.img_shm = mp.shared_memory.SharedMemory(create=True, size=original_array.nbytes)
             self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
             
-            self.mask_process = mp.Process(target=async_g_dino, args=(img_shape, self.img_shm.name, self.image_queue, self.mask_queue))
-            # async_g_dino(img_shape, mem_name, image_queue, mask_queue):
+            self.mask_process = mp.Process(target=async_g_dino_inference, 
+                                           args=(img_shape, self.img_shm.name, 
+                                            self.image_queue, self.mask_queue))
             self.mask_process.start()
             self.images_sent = 0
             self.masks_recieved = 0
-                
-        if self.mask_delay_type == "n_step":
-            self.mask_step = -1
         
-        self.target_name = "apple"
+        self.target_name = "red apple"
+        self._min_dist = 10000
         
         self.objects = {
             'object_1': 'red apple',
             'object_2': 'green block',
             'object_3': 'chocolate donut',
-            'object_4': 'glass flask jar',
+            'object_4': 'round bottomed flask',
             'object_5': 'yellow toy duck',
-            'object_6': 'banana',
+            'object_6': 'yellow banana',
             'object_7': 'purple alarm clock',
-            'object_8': 'cup',
-            'object_9': 'water bottle',
+            'object_8': 'pink cup',
+            'object_9': 'blue water bottle',
             'object_10': 'light bulb',
             'object_11': 'wine glass',
             'object_12': 'copper bowl',
             'object_13': 'silver headphone',
             'object_14': 'hammer',
-            'object_15': 'camera',
-            'object_16': 'stapler',
-            'object_17': 'sphere',
-            'object_18': 'train',
+            'object_15': 'digital camera',
+            'object_16': 'blue stapler',
+            'object_17': 'white egg',
+            'object_18': 'green toy train',
             'object_19': 'teapot',
-            'object_20': 'eyeglasses',
+            'object_20': 'red eyeglasses',
         }
         
         self.ofd = {
-            0: [0, 1, 2, 3, 15],
-            1: [4, 5, 6, 7, 16],
-            2: [8, 9, 10, 11, 17],
-            3: [12, 13, 14, 18, 19],
-            4: [0, 4, 8, 12, 1],
-            5: [1, 5, 9, 13, 17],
-            6: [2, 6, 10, 14, 18],
-            7: [3, 7, 11, 15, 19],
-            8: [0, 5, 8, 16, 2],
-            9: [1, 6, 9, 11, 18],
-            10: [2, 4, 10, 12, 17],
-            11: [3, 5, 14, 19, 8],
-            12: [0, 9, 11, 13, 16],
-            13: [1, 7, 12, 15, 18],
-            14: [2, 10, 14, 16, 19],
-        }
+            0: [2, 1, 0, 11, 12],
+            1: [15, 18, 10, 13, 9],
+            2: [3, 16, 6, 5, 19],
+            3: [4, 14, 17, 7, 8],
+            4: [9, 4, 18, 13, 6],
+            5: [12, 2, 11, 5, 0],
+            6: [16, 17, 19, 7, 8],
+            7: [10, 15, 14, 1, 3],
+            8: [9, 5, 19, 11, 18],
+            9: [0, 16, 10, 14, 2],
+            10: [8, 13, 12, 17, 4],
+            11: [3, 1, 15, 6, 7],
+            12: [1, 5, 15, 16, 13],
+            13: [8, 7, 9, 6, 4],
+            14: [12, 19, 0, 18, 10],
+            15: [3, 17, 2, 14, 11],
+            16: [11, 6, 7, 16, 13],
+            17: [3, 4, 1, 14, 5],
+            18: [19, 18, 0, 9, 8],
+            19: [12, 17, 10, 2, 15]
+        } 
         
         self.ofd_index = ofd_index
         print('ofd_index:', ofd_index)
@@ -328,7 +203,6 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
         obs_dict['mask_size'] = np.array([self.mask_size])  
- 
         self.current_observation = self.get_observation()
 
         this_model = sim.model
@@ -341,7 +215,7 @@ class EnvV0(env_base_0.MujocoEnv):
         obs_dict["touching_body"] = obs_vec
 
         return obs_dict
-
+    
     def _obj_label_to_obs(self, touching_body):
         # Function to convert touching body set to an binary observation vector
         # order follows the definition in python_api file
@@ -358,36 +232,41 @@ class EnvV0(env_base_0.MujocoEnv):
     
     def get_reward_dict(self, obs_dict):
         self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
+        
+        if self.distance < self._min_dist:
+            self._min_dist = self.distance
+        
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
-
-        # if contact == 1:
-        #     self.single_touch += 1
-        #     if self.single_touch == 1:
-        #         print('First touch!')
-        # elif contact == 2:
-        #     self.single_touch += 1
-        #     print('Second touch!') 
         
         mask_size = int(self.mask_size * 100)
-        if mask_size >= 55:
-            self.mask_size_counter += 1
-        
-        done = np.array([self.mask_size_counter]) == 5
+        if self.reward_mode == 'mask_size': 
+            if mask_size >= MASK_SIZE_LIMIT:
+                self.mask_size_counter += 1
+            done_1 = np.array([self.mask_size_counter]) == 5
+            done_2 = self.mask_size_counter == 5
+        else:
+            if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
+                done_1 = np.full((1,), True, dtype=np.bool_)
+                done_2 = True
+            else:
+                done_1 = np.full((1,), False, dtype=np.bool_)
+                done_2 = False
+                
              
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
             ('penalty', np.array([-1])),  
             ('mask_size',  mask_size_reward),
-            ('done', done),  
+            ('done', done_1),  
         )) 
          
         if self.env_mode == "train":
             rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
         else:
-            rwd_dict['dense'] = 1.0 if self.mask_size_counter == 5 else 0
-            rwd_dict['done'] = self.mask_size_counter == 5
+            rwd_dict['dense'] = 1.0 if done_2 else 0
+            rwd_dict['done'] = done_2
         
         return rwd_dict
     
@@ -413,6 +292,10 @@ class EnvV0(env_base_0.MujocoEnv):
     
     def reset(self, reset_qpos=None, **kwargs): 
         # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
+
+        print('min dist: ', self._min_dist)
+        self._min_dist = 10000
+        
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
         self.gdino_error = 0
@@ -420,13 +303,10 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_accuracy = 0
         self.distance = 1.0
         self.gs = 0
+        self.mask_size = 0
         self.mask_size_counter = 0
-        self.single_touch = 0
-
-        if self.mask_delay_type == "n_step":
-            self.mask_step = -1
         
-        if self.mask_type == "gdino_async":
+        if self.classifier == "gdino" and self.inference_type == "async":
             while(self.images_sent > self.masks_recieved):
                 self.mask_queue.get()
                 self.masks_recieved += 1
@@ -437,6 +317,7 @@ class EnvV0(env_base_0.MujocoEnv):
         train_items = list(set(range(20)) - set(ofd_items))
         
         if self.env_mode == "train" or self.env_mode == "eval":
+            print(train_items)
             number = random.choice(train_items)
         elif self.env_mode == "eval_ofd":
             number = random.choice(ofd_items) 
@@ -460,12 +341,9 @@ class EnvV0(env_base_0.MujocoEnv):
             
             for obj_name in self.TS:
                 if obj_name == self.target_site_name:
-                    if self.env_mode == "inference_1" or self.env_mode == "inference_3":
-                        x_pos = 0
-                        y_pos = 0.35
-                    else:
-                        x_pos = random.uniform(-0.03, 0.03)
-                        y_pos = 0.35 + random.uniform(-0.02, 0.02)
+                    x_pos = -0.02
+                    y_pos = 0.31
+
                     self.place_object(obj_name, reset_qpos, x_pos, y_pos)
                     
                     self.target_x = x_pos
@@ -483,24 +361,26 @@ class EnvV0(env_base_0.MujocoEnv):
                     self.place_object(obj_name, reset_qpos, drop=True)
         
         elif self.env_mode == "eval_ofd" or self.env_mode == "eval" or self.env_mode == "train": 
+            items = random.randint(2, 4)
+            
             if self.env_mode == "eval_ofd":
-                site_names = random.sample(ofd_items, 5)
-                for obj_name in self.TS[0:3]:
-                    self.place_object(obj_name, reset_qpos, drop=True)
+                eval_items = list(set(range(20)))
+                eval_items.remove(number)
+                item_indices = random.sample(eval_items, items)
             else:
-                items = random.randint(2, 4)
                 train_items.remove(number)
                 item_indices = random.sample(train_items, items)
-                site_names = [self.TS[idx] for idx in item_indices]
                 
-                item_names = [self.TN[idx] for idx in item_indices]
-                print('Other objects: ', item_names)
-                
-                site_names.append(self.target_site_name)
+            site_names = [self.TS[idx] for idx in item_indices]
+            
+            item_names = [self.TN[idx] for idx in item_indices]
+            print('Other objects: ', item_names)
+            
+            site_names.append(self.target_site_name)
 
-                for obj_name in self.TS:
-                    if obj_name not in site_names:
-                        self.place_object(obj_name, reset_qpos, drop=True)
+            for obj_name in self.TS:
+                if obj_name not in site_names:
+                    self.place_object(obj_name, reset_qpos, drop=True)
             
             center_obj_x_pos = random.uniform(self.center_obj_range[0][0], 
                                               self.center_obj_range[0][1])
@@ -520,7 +400,10 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_x, self.target_y  = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
-        self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        try:
+            self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        except:
+            self.r = 0
         
         self.final_image = self.current_image
         
@@ -530,13 +413,6 @@ class EnvV0(env_base_0.MujocoEnv):
     
 
     def get_observation(self):
-        """
-        Uses the controllers get_image_data method to return an top-down image (as a np-array).
-
-        Args:
-            show: If True, displays the observation in a cv2 window.
-        """
-
         rgb = self.get_image_data()
         
         site_pos = self.sim.data.site_xpos[self.target_sid].copy()
@@ -544,13 +420,15 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
-        self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
-
+        try:
+            self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        except:
+            self.r = 0
         observation = {}
         observation["rgb"] = rgb
         
         return observation
-
+    
     #setting a boundary of virtual box such that the arm will not accidentally
     def check_collision(self):
         """ Check if any joint is out of the defined boundary """
@@ -606,29 +484,17 @@ class EnvV0(env_base_0.MujocoEnv):
         """
         self.save_state()
         self.prev_action = a
- 
-        if self.single_touch >= 1000:
-            print('hard-coded')
-            self.fixed_positions = self.sim.data.qpos[:self.sim.model.nu].copy()
-            self.fixed_positions[-1] = 1
-            a[-1] = 1
+        
+        a = np.clip(a, self.action_space.low, self.action_space.high)
 
-            self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = self.fixed_positions,
-                                        dt = self.dt,
-                                        render_cbk=self.mj_render if self.mujoco_render_frames else None)
-        else:
-            a = np.clip(a, self.action_space.low, self.action_space.high)
-            self.fixed_positions = None
-
-            last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
-            if self.robot_name == 'franka' and hasattr(self, 'last_ctrl'):
-                last_pos[-1] = self.last_ctrl[-1]
-                
-            self.last_ctrl = self.robot.step(ctrl_desired=a,
-                                        last_qpos = last_pos,
-                                        dt = self.dt,
-                                        render_cbk=self.mj_render if self.mujoco_render_frames else None)
+        last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
+        if self.robot_name == 'franka' and hasattr(self, 'last_ctrl'):
+            last_pos[-1] = self.last_ctrl[-1]
+            
+        self.last_ctrl = self.robot.step(ctrl_desired=a,
+                                    last_qpos = last_pos,
+                                    dt = self.dt,
+                                    render_cbk=self.mj_render if self.mujoco_render_frames else None)
 
 
         if self.check_collision():
@@ -660,58 +526,27 @@ class EnvV0(env_base_0.MujocoEnv):
                                                height=self.IMAGE_HEIGHT, 
                                                camera_id=camera, depth = False)) 
 
-        rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB)
+        rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB) 
         
-        if self.mask_type == "ground_truth":
-            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
-            x, y = int(self.target_x), int(self.target_y)
-            half_side = int(max(self.r, 2))
-            if half_side < 1000:
-                cv.rectangle(mask, (x - half_side, y - half_side), (x + half_side, y + half_side), 255, thickness=-1)
-
-
-            if self.mask_delay_type == "none":
-                self.current_mask = mask
-            elif self.mask_delay_type == "n_step":
-                if self.mask_step == -1:
-                    self.current_mask = mask.copy()
-                    self.saved_mask = mask.copy()
-                    self.mask_step = 1
-                else:
-                    if self.mask_step == 0:
-                        self.current_mask = self.saved_mask
-                        self.saved_mask = mask.copy()
-                        self.mask_step = self.mask_delay_steps
-                self.mask_step -= 1
-        elif self.mask_type == "gdino_sync":
-            pil_image = Image.fromarray(rgb)
-            t1 = time.time()
-            boxes, logits, phrases = predict(
-                model=self.mask_model,
-                image=load_image(pil_image, [self.IMAGE_WIDTH, self.IMAGE_HEIGHT]),
-                caption=self.target_name,
-                box_threshold=BOX_THRESHOLD,
-                text_threshold=TEXT_THRESHOLD
-            )
-            t2 = time.time() 
-            self.gdino_step += 1
-            self.gdino_time = t2 - t1
-            if logits.nelement() > 0:
-                _, indices = torch.max(logits, dim = 0)
-                boxes = boxes.numpy()
-                boxes = boxes[indices] 
+        if self.classifier == "gdino" and self.inference_type == "sync":
+            boxes, inference_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
+            
+            print(f'inference_time: {inference_time}')
+            
             mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
             self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-            
+ 
             gt_center = int(self.target_x), int(self.target_y)
-            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+            
+            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
                 self.gdino_num_accurate += 1
+                
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
 
-        elif self.mask_type == "gdino_async":
+        elif self.classifier == "gdino" and self.inference_type == "async":
             if self.current_mask is None:
                 np.copyto(self.img_arr, rgb)
                 self.image_queue.put(self.target_name)
@@ -739,18 +574,13 @@ class EnvV0(env_base_0.MujocoEnv):
                     self.images_sent += 1
                     
             gt_center = int(self.target_x), int(self.target_y)
-            if is_gdino_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
                 self.gdino_num_accurate += 1
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
-            # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time, "  target: ", gt_center)
-            
-        #define the grasping rectangle
-        x1, x2 = int(self.IMAGE_WIDTH * 0.30), int(self.IMAGE_WIDTH * 0.70)
-        y1, y2 = int(self.IMAGE_HEIGHT * 0.40), int(self.IMAGE_HEIGHT * 0.75)
-        
-        # cv.rectangle(rgb, (x1, y1), (x2, y2), (0, 255, 0), 3)
+        x1, x2 = 0, self.IMAGE_WIDTH
+        y1, y2 = 0, self.IMAGE_HEIGHT
         
         roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
@@ -837,18 +667,23 @@ class EnvV0(env_base_0.MujocoEnv):
         image[1, 2] = (self.IMAGE_HEIGHT - 1) / 2.0
         return image @ focal @ rotation @ translation
     
-    def world_2_pixel(self, world_coordinate, camera_matrix):
-        """
-        Takes a XYZ world position and transforms it into pixel coordinates.
-        Mainly implemented for testing the correctness of the camera matrix, focal length etc.
-
-        Args:
-            world_coordinate: XYZ world coordinate to be transformed into pixel space.
-            width: Width of the image (pixel).
-            height: Height of the image (pixel).
-            camera: Name of camera used to obtain the image.
-        """
+    def is_classifier_prediction_accurate(self, gt_pos, classifier_pos, dist, image_width, image_height):
+        mlt = (-0.5 * dist) + 1.5 
+        acceptable_dist = (image_width / 7.5) * mlt 
+        if isinstance(acceptable_dist, np.ndarray):
+            acceptable_dist = acceptable_dist[0]
+        distance = math.sqrt((gt_pos[0] - classifier_pos[0])**2 + (gt_pos[1] - classifier_pos[1])**2)
         
+        if classifier_pos[0] == -2000 and classifier_pos[1] == -2000:
+            w_tol = image_width * 0.025
+            h_tol = image_height * 0.025
+            if gt_pos[0] < w_tol and gt_pos[0] > image_width - w_tol and gt_pos[1] < h_tol and gt_pos[1] > image_height - h_tol:
+                return True
+            return False
+
+        return distance < acceptable_dist
+    
+    def world_2_pixel(self, world_coordinate, camera_matrix):
         w = np.ones((4,), dtype=float)
         w[0:3] = world_coordinate
         xs, ys, s = camera_matrix @ w 

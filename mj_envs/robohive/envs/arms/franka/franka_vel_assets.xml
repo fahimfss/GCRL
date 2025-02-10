@@ -80,8 +80,8 @@
 
         <mesh name="train_contact0" file="../../../../simhive/object_sim/train/contact0.stl" />
 
-        <mesh name="sphere" file="../../../../simhive/object_sim/spheresmall/spheresmall.stl" scale="1.35 1 1"/>
-        <mesh name="sphere_contact0" file="../../../../simhive/object_sim/spheresmall/contact0.stl" scale="1.35 1 1"/>
+        <mesh name="sphere" file="../../../../simhive/object_sim/spheresmall/spheresmall.stl" scale="2 1.5 1.5"/>
+        <mesh name="sphere_contact0" file="../../../../simhive/object_sim/spheresmall/contact0.stl" scale="2 1.5 1.5"/>
 
         
         <mesh name="stapler1" file="../../../../simhive/object_sim/stapler/stapler1.stl" />

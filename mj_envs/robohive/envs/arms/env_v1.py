@@ -46,7 +46,7 @@ class EnvV1(env_base_0.MujocoEnv):
         ):
 
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
-        self.center_obj_range = np.array([[-0.15, 0.15], [0.27, 0.43]])
+        self.center_obj_range = np.array([[-0.15, 0.15], [0.29, 0.41]])
         self.IMAGE_WIDTH = image_width
         self.IMAGE_HEIGHT = image_height  
         self.cam_init = True
@@ -87,23 +87,23 @@ class EnvV1(env_base_0.MujocoEnv):
             'object_1': ('red apple', (1.25, 1.35), (0, -0.03)),
             'object_2': ('green block', (1.1, 1.1), (0, -0.02)),
             'object_3': ('chocolate donut', (1.1, 1.1), (0, 0)),
-            'object_4': ('glass flask jar', (1.1, 1.5), (0, -0.03)),
+            'object_4': ('round bottomed flask', (1.1, 1.5), (0, -0.03)),
             'object_5': ('yellow toy duck', (1.4, 1.3), (0, -0.02)),
-            'object_6': ('banana', (1.3, 1.7), (-0.02, 0)),
+            'object_6': ('yellow banana', (1.3, 1.7), (-0.02, 0)),
             'object_7': ('purple alarm clock', (1.4, 1.4), (0, -0.03)),
             'object_8': ('cup', (1.4, 1.5), (0, -0.04)),
-            'object_9': ('water bottle', (1.1, 1.4), (0, 0)),
+            'object_9': ('blue water bottle', (1.1, 1.4), (0, 0)),
             'object_10': ('light bulb', (1.4, 1.1), (0, 0)),
             'object_11': ('wine glass', (1.1, 1.35), (0, 0)),
             'object_12': ('copper bowl', (1.35, 1.2), (0, -0.02)),
             'object_13': ('silver headphone', (1.2, 1.2), (0, 0)),
             'object_14': ('hammer', (1.1, 1.4), (-0.02, -0.02)),
-            'object_15': ('camera', (1.45, 1.1), (0, 0)),
-            'object_16': ('stapler', (1.45, 1), (0, 0)),
-            'object_17': ('egg', (1, 1), (0, 0)),
-            'object_18': ('train', (1.4, 1), (0, 0)),
+            'object_15': ('digital camera', (1.45, 1.1), (0, 0)),
+            'object_16': ('blue stapler', (1.45, 1), (0, 0)),
+            'object_17': ('white egg', (1, 1), (0, 0)),
+            'object_18': ('green toy train', (1.4, 1), (0, 0)),
             'object_19': ('teapot', (1.4, 1.3), (0, 0)),
-            'object_20': ('eyeglasses', (1.4, 1.2), (0, 0))
+            'object_20': ('red eyeglasses', (1.4, 1.2), (0, 0))
         }
         
         self.ofd = {
@@ -130,8 +130,6 @@ class EnvV1(env_base_0.MujocoEnv):
         } 
  
         self.ofd_index = ofd_index
-        
-        self.filename = f'/home/fahim/Projects/RLC/scritps/images/100.png'
 
         self.TS = list(self.objects.keys())
         self.TN = []
@@ -316,8 +314,6 @@ class EnvV1(env_base_0.MujocoEnv):
             number = random.choice(ofd_items) 
         else:
             number = self.target_obj_num 
-            
-        self.filename = f'/home/fahim/Projects/RLC/scritps/images/{number}.png'
              
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
@@ -364,24 +360,26 @@ class EnvV1(env_base_0.MujocoEnv):
                     self.place_object(obj_name, reset_qpos, drop=True)
         
         elif self.env_mode == "eval_ofd" or self.env_mode == "eval" or self.env_mode == "train": 
+            items = random.randint(2, 4)
+            
             if self.env_mode == "eval_ofd":
-                site_names = random.sample(ofd_items, 5)
-                for obj_name in self.TS[0:3]:
-                    self.place_object(obj_name, reset_qpos, drop=True)
+                eval_items = list(set(range(20)))
+                eval_items.remove(number)
+                item_indices = random.sample(eval_items, items)
             else:
-                items = random.randint(2, 4)
                 train_items.remove(number)
                 item_indices = random.sample(train_items, items)
-                site_names = [self.TS[idx] for idx in item_indices]
                 
-                item_names = [self.TN[idx] for idx in item_indices]
-                print('Other objects: ', item_names)
-                
-                site_names.append(self.target_site_name)
+            site_names = [self.TS[idx] for idx in item_indices]
+            
+            item_names = [self.TN[idx] for idx in item_indices]
+            print('Other objects: ', item_names)
+            
+            site_names.append(self.target_site_name)
 
-                for obj_name in self.TS:
-                    if obj_name not in site_names:
-                        self.place_object(obj_name, reset_qpos, drop=True)
+            for obj_name in self.TS:
+                if obj_name not in site_names:
+                    self.place_object(obj_name, reset_qpos, drop=True)
             
             center_obj_x_pos = random.uniform(self.center_obj_range[0][0], 
                                               self.center_obj_range[0][1])
@@ -401,7 +399,10 @@ class EnvV1(env_base_0.MujocoEnv):
         self.target_x, self.target_y  = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
-        self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        try:
+            self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        except:
+            self.r = 0
         
         self.final_image = self.current_image
         
@@ -411,13 +412,6 @@ class EnvV1(env_base_0.MujocoEnv):
     
 
     def get_observation(self):
-        """
-        Uses the controllers get_image_data method to return an top-down image (as a np-array).
-
-        Args:
-            show: If True, displays the observation in a cv2 window.
-        """
-
         rgb = self.get_image_data()
         
         site_pos = self.sim.data.site_xpos[self.target_sid].copy()
@@ -425,40 +419,15 @@ class EnvV1(env_base_0.MujocoEnv):
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
-        self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        try:
+            self.r = math.sqrt((rx - self.target_x) ** 2 + (ry - self.target_y) ** 2)
+        except:
+            self.r = 0
 
         observation = {}
         observation["rgb"] = rgb
         
         return observation
-
-    #setting a boundary of virtual box such that the arm will not accidentally
-    def check_collision(self):
-        """ Check if any joint is out of the defined boundary """
-        if "ur10e" in self.sim.model.name:
-            x_min, x_max = -1.5, 1.5
-            y_min, y_max = -1.7, 1.5
-            z_min, z_max = 0.85, 2.23
-            for i in range(1, 13):
-                joint_frame_id = self.sim.model.jnt_bodyid[i]
-                joint_pos = self.sim.data.xpos[joint_frame_id]
-                if not (x_min <= joint_pos[0] <= x_max and 
-                        y_min <= joint_pos[1] <= y_max and 
-                        z_min <= joint_pos[2] <= z_max):
-                    return True
-        elif "franka" in self.sim.model.name:
-            x_min, x_max = -3, 3
-            y_min, y_max = -3, 3
-            z_min, z_max = 0.85, 2.23
-            for i in range(1, 9):
-                joint_frame_id = self.sim.model.jnt_bodyid[i]
-                joint_pos = self.sim.data.xpos[joint_frame_id]
-                if not (x_min <= joint_pos[0] <= x_max and 
-                        y_min <= joint_pos[1] <= y_max and 
-                        z_min <= joint_pos[2] <= z_max):
-                    return True
-
-        return False
     
     def save_state(self):
         """ Save the current simulation state """
@@ -487,8 +456,7 @@ class EnvV1(env_base_0.MujocoEnv):
         """
         self.save_state()
         self.prev_action = a
- 
-
+        
         a = np.clip(a, self.action_space.low, self.action_space.high)
 
         last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()

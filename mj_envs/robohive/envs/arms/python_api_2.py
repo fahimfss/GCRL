@@ -72,4 +72,3 @@ def load_callback(model=None, data=None, filename = None):
         mujoco.set_mjcb_control(partial(arm_control, id_info=id_info))
 
     return model, data
-
