@@ -2,6 +2,14 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+import sys
+sys.path.append('/gpfs/home/wanghuiy/RLC/JSAC') 
+path = os.getcwd()
+sys.path.append(path + '/../')
+sys.path.append(path +'/../JSAC')
+sys.path.append(path +'/../JSAC/jsac')
+sys.path.append(path +'/../JSAC/jsac/envs')
+
 import time
 import shutil
 import argparse
@@ -130,20 +138,20 @@ def main(seed=-1, env_name=None):
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
-    if os.path.exists(args.work_dir):
-        inp = input('The work directory already exists. ' +
-                    'Please select one of the following: \n' +  
-                    '  1) Press Enter to resume the run.\n' + 
-                    '  2) Press X to remove the previous work' + 
-                    ' directory and start a new run.\n' + 
-                    '  3) Press any other key to exit.\n')
-        if inp == 'X' or inp == 'x':
-            shutil.rmtree(args.work_dir)
-            print('Previous work dir removed.')
-        elif inp == '':
-            pass
-        else:
-            exit(0)
+    # if os.path.exists(args.work_dir):
+    #     inp = input('The work directory already exists. ' +
+    #                 'Please select one of the following: \n' +  
+    #                 '  1) Press Enter to resume the run.\n' + 
+    #                 '  2) Press X to remove the previous work' + 
+    #                 ' directory and start a new run.\n' + 
+    #                 '  3) Press any other key to exit.\n')
+    #     if inp == 'X' or inp == 'x':
+    #         shutil.rmtree(args.work_dir)
+    #         print('Previous work dir removed.')
+    #     elif inp == '':
+    #         pass
+    #     else:
+    #         exit(0)
 
     make_dir(args.work_dir)
 

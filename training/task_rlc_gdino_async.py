@@ -42,19 +42,22 @@ def parse_args():
     
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
     # parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
+    parser.add_argument('--task_name', default='gdino_async_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
-    parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
+    parser.add_argument('--image_width', default=159, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
-    parser.add_argument('--inference_type', default='async', type=str)
+    parser.add_argument('--mask_type', default='gdino_async', type=str)  # "ground_truth", "gdino_sync", "gdino_async"
+    parser.add_argument('--step_time', default=0.1, type=float) 
+    parser.add_argument('--mask_delay_type', default='none', type=str)
+    parser.add_argument('--mask_delay_steps', default=2, type=int) 
+    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=500_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -173,8 +176,9 @@ def main(seed=-1, env_name=None):
                    args.image_history, 
                    args.image_width, 
                    args.image_height,
-                   classifier=args.classifier,
-                   inference_type=args.inference_type,
+                   #mask_type=args.mask_type,
+                   mask_delay_type=args.mask_delay_type,
+                   mask_delay_steps=args.mask_delay_steps,
                    step_time=step_time)
     env = WrappedEnv(env, 200)
 
@@ -214,7 +218,7 @@ def main(seed=-1, env_name=None):
 
     update_paused = True
     time.sleep(30)
-    state = env.reset(create_vid=False)
+    state = env.reset(create_vid=True)
     
     first_step = True
 
@@ -241,7 +245,7 @@ def main(seed=-1, env_name=None):
                 eval_queue_1.put('start_gdino_async')
                 eval_queue_2.put('start_gdino_async')
             else:
-                state = env.reset(create_vid=False)
+                state = env.reset(create_vid=True)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time

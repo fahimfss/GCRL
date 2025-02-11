@@ -165,7 +165,7 @@ class EnvV1(env_base_0.MujocoEnv):
             self.obs_keys = ['qp_robot', 'prev_action', '3d_pos']
             self.proprio_keys = self.obs_keys.copy()
         elif self.goal_type == GOALTYPE_CLIP:
-            self.clip_embeddings = np.load('../mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
+            self.clip_embeddings = np.load('/gpfs/home/wanghuiy/RLC/mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
             self.current_clip_embedding = self.clip_embeddings[0].copy()
             self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
             self.obs_keys = ['qp_robot', 'prev_action', 'clip_embedding']
