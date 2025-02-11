@@ -25,6 +25,7 @@ def load_image(image_source, image_size):
 
 def create_mask(image_source, boxes) -> np.ndarray:
     h, w = image_source.shape
+    size = h * w
     boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
 
     xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
@@ -34,12 +35,16 @@ def create_mask(image_source, boxes) -> np.ndarray:
     if xyxy.size != 0:
         top_left = (int(xyxy[0]), int(xyxy[1]))
         bottom_right = (int(xyxy[2]), int(xyxy[3]))
-        center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
-        cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
-        white_pixels = np.argwhere(mask == 255)
-    
-        centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
-        centroid = (centroid[1], centroid[0])
+        
+        mask_size = abs(int(xyxy[2]) - int(xyxy[0])) * abs(int(xyxy[3]) - int(xyxy[1]))
+        
+        if (mask_size / size) < 0.75:
+            center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
+            cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
+            white_pixels = np.argwhere(mask == 255)
+        
+            centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
+            centroid = (centroid[1], centroid[0])
 
     return mask, center
 
@@ -48,7 +53,7 @@ def g_dino_inference(image, model, caption, height, width):
     t1 = time.time()
     boxes, logits, phrases = predict(
         model=model,
-        image=load_image(pil_image, [800, 600]),
+        image=load_image(pil_image, [960, 540]),
         # image=load_image(pil_image, [width, height]),
         caption=caption,
         box_threshold=BOX_THRESHOLD,

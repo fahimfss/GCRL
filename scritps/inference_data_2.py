@@ -23,8 +23,8 @@ def parse_args():
     parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
     parser.add_argument('--env_mode', default='inference_1', type=str) 
     parser.add_argument('--target_obj_num', default=7, type=int) 
-    parser.add_argument('--image_height', default=480, type=int)     # Mode: img, img_prop
-    parser.add_argument('--image_width', default=640, type=int)      # Mode: img, img_prop     
+    parser.add_argument('--image_height', default=540, type=int)     # Mode: img, img_prop
+    parser.add_argument('--image_width', default=960, type=int)      # Mode: img, img_prop     
     parser.add_argument('--image_history', default=1, type=int)      # Mode: img, img_prop
 
     args = parser.parse_args()
@@ -69,6 +69,10 @@ def main(env_mode, target_obj_num, itr):
     change = 0.3
     flag = False
 
+    action = np.array([0] * 8)
+    action[2] = 0.6
+    action[4] = -0.5
+    
     for i in range(trial): 
         ep_rewards = 0
         solved, done = False, False
@@ -82,17 +86,17 @@ def main(env_mode, target_obj_num, itr):
             if step < 5: 
                 state, reward, done, info = env.step(np.zeros(args.action_shape, dtype=np.float32))
             else:
-                action = np.array([0] * 8)  #[0, start_0, 0, 0.23, 0.0, 0.12, 0.0, 0.0])
+                  #[0, start_0, 0, 0.23, 0.0, 0.12, 0.0, 0.0])
                         
                 t1 = time.time()
-                state, reward, done, info = env.step(action)
+                state, reward, done, info = env.step(np.array([-0.01] * 8)) 
                 t2 = time.time()
                 
                 img = state[0].copy()  
-                img = (img[..., :3] * 0.7 + img[..., 3:]*0.3).astype(img.dtype)
+                img = (img[..., :3]).astype(img.dtype)
                  
                 cv2.imshow("img", img)
-                cv2.waitKey(30) 
+                cv2.waitKey(20) 
         
             solved = done
             step += 1
@@ -101,4 +105,4 @@ def main(env_mode, target_obj_num, itr):
 
 
 if __name__ == '__main__':
-    main('inference_1', 3, 1)
+    main('inference_1', 1, 1)

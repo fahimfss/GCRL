@@ -5,8 +5,7 @@ import jax
 import flax
 import numpy as np
 from jax import random
-import jax.numpy as jnp
-import cv2
+import jax.numpy as jnp 
 from jsac.envs.dmc_visual_env.dmc_env import DMCVisualEnv
 from jsac.algo.agent import sample_actions
 from jsac.algo.initializers import init_inference_actor, get_init_data

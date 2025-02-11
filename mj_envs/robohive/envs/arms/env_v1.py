@@ -17,9 +17,11 @@ GOALTYPE_ONE_HOT = "G2_OH"
 GOALTYPE_3D = "G3_3d"
 GOALTYPE_CLIP = "G4_Clip"
 GOALTYPE_TARGET_STATE = "G5_TS"
-MASK_SIZE_LIMIT = 30
-MASK_SIZE_LIMIT_DIST = 30
+# MASK_SIZE_LIMIT = 30
+# MASK_SIZE_LIMIT_DIST = 30
 DISTANCE_THRESHOLD = 0.1
+TARGET_X_BOUNDARY = 0.2
+TARGET_Y_BOUNDARY = 0.2
 
 class EnvV1(env_base_0.MujocoEnv):
     
@@ -35,11 +37,11 @@ class EnvV1(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               image_width=640,
-               image_height=480,
+               image_width=960,
+               image_height=540,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
-               reward_mode = "distance",    # "distance", "mask_size"
+               reward_mode = "distance",   # "distance", "mask_size"
                goal_type = GOALTYPE_MASK,     
                ofd_index=0,
                **kwargs,
@@ -57,9 +59,13 @@ class EnvV1(env_base_0.MujocoEnv):
         self.camera_matrix = None
         self.current_mask = None
         self.distance = 1.0
+        self._target_in_boundary = False
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.env_mode = env_mode
         self.reward_mode = reward_mode 
+        
+        print(f'Reward mode: {self.reward_mode}')
+        
         self.target_name = "red apple"
         self.mask_size = 0  
         self.mask_size_counter = 0
@@ -89,7 +95,7 @@ class EnvV1(env_base_0.MujocoEnv):
             'object_3': ('chocolate donut', (1.1, 1.1), (0, 0)),
             'object_4': ('round bottomed flask', (1.1, 1.5), (0, -0.03)),
             'object_5': ('yellow toy duck', (1.4, 1.3), (0, -0.02)),
-            'object_6': ('yellow banana', (1.3, 1.7), (-0.02, 0)),
+            'object_6': ('banana', (1.3, 1.7), (-0.02, 0)),
             'object_7': ('purple alarm clock', (1.4, 1.4), (0, -0.03)),
             'object_8': ('cup', (1.4, 1.5), (0, -0.04)),
             'object_9': ('blue water bottle', (1.1, 1.4), (0, 0)),
@@ -165,7 +171,7 @@ class EnvV1(env_base_0.MujocoEnv):
             self.obs_keys = ['qp_robot', 'prev_action', '3d_pos']
             self.proprio_keys = self.obs_keys.copy()
         elif self.goal_type == GOALTYPE_CLIP:
-            self.clip_embeddings = np.load('/gpfs/home/wanghuiy/RLC/mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
+            self.clip_embeddings = np.load('../mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
             self.current_clip_embedding = self.clip_embeddings[0].copy()
             self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
             self.obs_keys = ['qp_robot', 'prev_action', 'clip_embedding']
@@ -244,18 +250,18 @@ class EnvV1(env_base_0.MujocoEnv):
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
         mask_size = int(self.mask_size * 100)
-        if self.reward_mode == 'mask_size': 
-            if mask_size >= MASK_SIZE_LIMIT:
-                self.mask_size_counter += 1
-            done_1 = np.array([self.mask_size_counter]) == 5
-            done_2 = self.mask_size_counter == 5
+        # if self.reward_mode == 'mask_size': 
+        #     if mask_size >= MASK_SIZE_LIMIT:
+        #         self.mask_size_counter += 1
+        #     done_1 = np.array([self.mask_size_counter]) == 5
+        #     done_2 = self.mask_size_counter == 5
+        # else:
+        if self.distance < DISTANCE_THRESHOLD and self._target_in_boundary:
+            done_1 = np.full((1,), True, dtype=np.bool_)
+            done_2 = True
         else:
-            if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
-                done_1 = np.full((1,), True, dtype=np.bool_)
-                done_2 = True
-            else:
-                done_1 = np.full((1,), False, dtype=np.bool_)
-                done_2 = False
+            done_1 = np.full((1,), False, dtype=np.bool_)
+            done_2 = False
                 
              
         rwd_dict = collections.OrderedDict((
@@ -302,6 +308,7 @@ class EnvV1(env_base_0.MujocoEnv):
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
         self.distance = 1.0
+        self._target_in_boundary = False
 
         self.mask_size_counter = 0 
         
@@ -311,7 +318,12 @@ class EnvV1(env_base_0.MujocoEnv):
         if self.env_mode == "train" or self.env_mode == "eval":
             number = random.choice(train_items)
         elif self.env_mode == "eval_ofd":
-            number = random.choice(ofd_items) 
+            if 'object_id' in kwargs:
+                number = kwargs['object_id']
+                kwargs.pop('object_id')
+            else:
+                number = number = random.choice(list(range(20)))
+            print(f'Object Id: {number}')
         else:
             number = self.target_obj_num 
              
@@ -340,8 +352,8 @@ class EnvV1(env_base_0.MujocoEnv):
             
             for obj_name in self.TS:
                 if obj_name == self.target_site_name:
-                    x_pos = -0.02
-                    y_pos = 0.31
+                    x_pos = 0
+                    y_pos = 0.38
 
                     self.place_object(obj_name, reset_qpos, x_pos, y_pos)
                     
@@ -417,6 +429,8 @@ class EnvV1(env_base_0.MujocoEnv):
         site_pos = self.sim.data.site_xpos[self.target_sid].copy()
         camera_matrix = self.compute_camera_matrix()
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
+        self._target_in_boundary = self.check_target_in_boundary()
+        
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
         try:
@@ -428,6 +442,34 @@ class EnvV1(env_base_0.MujocoEnv):
         observation["rgb"] = rgb
         
         return observation
+    
+    #setting a boundary of virtual box such that the arm will not accidentally
+    def check_collision(self):
+        """ Check if any joint is out of the defined boundary """
+        if "ur10e" in self.sim.model.name: ## BOUNDARIES FOR UR10eEnv-v0
+            x_min, x_max = -1.5, 1.5
+            y_min, y_max = -1.7, 1.5
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 13):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+        elif "franka" in self.sim.model.name:
+            x_min, x_max = -3, 3
+            y_min, y_max = -3, 3
+            z_min, z_max = 0.85, 2.23
+            for i in range(1, 9):
+                joint_frame_id = self.sim.model.jnt_bodyid[i]
+                joint_pos = self.sim.data.xpos[joint_frame_id]
+                if not (x_min <= joint_pos[0] <= x_max and 
+                        y_min <= joint_pos[1] <= y_max and 
+                        z_min <= joint_pos[2] <= z_max):
+                    return True
+
+        return False
     
     def save_state(self):
         """ Save the current simulation state """
@@ -446,6 +488,8 @@ class EnvV1(env_base_0.MujocoEnv):
                 self.sim.data.ctrl[:] = self.previous_state['actuator']
             obs = super().reset(reset_qpos = self.previous_state['qpos'], reset_qvel = None, **kwargs)
         return obs
+    
+
 
     def step(self, a, **kwargs):
         """
@@ -528,6 +572,20 @@ class EnvV1(env_base_0.MujocoEnv):
         
         return np.array(np.fliplr(np.flipud(rgb)))
 
+    def check_target_in_boundary(self):
+        w, h = self.IMAGE_WIDTH, self.IMAGE_HEIGHT
+        x, y = int(self.target_x), int(self.target_y)
+        
+        min_x = w * TARGET_X_BOUNDARY
+        max_x = w * (1 - TARGET_X_BOUNDARY)
+        min_y = h * TARGET_Y_BOUNDARY
+        max_y = h * (1 - TARGET_Y_BOUNDARY)
+
+        if min_x <= x <= max_x and min_y <= y <= max_y:
+            return True
+        
+        return False
+        
     def render(self, mode='rgb_array'):
         # Your implementation here, which should return an RGB array if mode is 'rgb_array'
         mode='rgb_array'

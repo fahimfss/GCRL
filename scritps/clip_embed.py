@@ -4,23 +4,23 @@ objects = {
     'object_1': 'red apple',
     'object_2': 'green block',
     'object_3': 'chocolate donut',
-    'object_4': 'glass flask jar',
+    'object_4': 'round bottomed flask',
     'object_5': 'yellow toy duck',
     'object_6': 'banana',
     'object_7': 'purple alarm clock',
     'object_8': 'cup',
-    'object_9': 'water bottle',
+    'object_9': 'blue water bottle',
     'object_10': 'light bulb',
     'object_11': 'wine glass',
     'object_12': 'copper bowl',
     'object_13': 'silver headphone',
     'object_14': 'hammer',
-    'object_15': 'camera',
-    'object_16': 'stapler',
-    'object_17': 'egg',
-    'object_18': 'train',
+    'object_15': 'digital camera',
+    'object_16': 'blue stapler',
+    'object_17': 'white egg',
+    'object_18': 'green toy train',
     'object_19': 'teapot',
-    'object_20': 'eyeglasses'
+    'object_20': 'red eyeglasses'
 }
 
 names = list(objects.values())

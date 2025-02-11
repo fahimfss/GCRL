@@ -66,7 +66,7 @@ def eval(args, log_dir, eval_queue, num_eval_episodes, rlc_eval):
                           ofd_index=args['ofd_index'])
         
         
-        env = WrappedEnv(env, 150)
+        env = WrappedEnv(env, args['episode_steps'])
         
     env_steps = int(args['env_steps'])
     

@@ -44,12 +44,12 @@ def parse_args():
     # parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
     parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
-    parser.add_argument('--image_width', default=120, type=int)          # Mode: img, img_prop     
+    parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--inference_type', default='sync', type=str)
     parser.add_argument('--step_time', default=0.0, type=float)
-    parser.add_argument('--episode_steps', default=125, type=int) 
+    parser.add_argument('--episode_steps', default=150, type=int) 
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)

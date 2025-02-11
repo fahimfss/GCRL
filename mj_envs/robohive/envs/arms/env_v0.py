@@ -38,8 +38,8 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               image_width=640,
-               image_height=480,
+               image_width=960,
+               image_height=540,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "mask_size",   # "distance", "mask_size"
@@ -75,6 +75,9 @@ class EnvV0(env_base_0.MujocoEnv):
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
+        
+        print('Reward mode: ', reward_mode)
+        
         self.classifier = classifier
         self.inference_type = inference_type 
         
@@ -116,6 +119,7 @@ class EnvV0(env_base_0.MujocoEnv):
         
         self.target_name = "red apple"
         self._min_dist = 10000
+        self.mask_size_counter = 0
         
         self.objects = {
             'object_1': 'red apple',
@@ -126,7 +130,7 @@ class EnvV0(env_base_0.MujocoEnv):
             'object_6': 'yellow banana',
             'object_7': 'purple alarm clock',
             'object_8': 'pink cup',
-            'object_9': 'blue water bottle',
+            'object_9': 'water bottle',
             'object_10': 'light bulb',
             'object_11': 'wine glass',
             'object_12': 'copper bowl',
@@ -240,18 +244,18 @@ class EnvV0(env_base_0.MujocoEnv):
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
         mask_size = int(self.mask_size * 100)
-        if self.reward_mode == 'mask_size': 
-            if mask_size >= MASK_SIZE_LIMIT:
-                self.mask_size_counter += 1
-            done_1 = np.array([self.mask_size_counter]) == 5
-            done_2 = self.mask_size_counter == 5
+        # if self.reward_mode == 'mask_size': 
+        #     if mask_size >= MASK_SIZE_LIMIT:
+        #         self.mask_size_counter += 1
+        #     done_1 = np.array([self.mask_size_counter]) == 5
+        #     done_2 = self.mask_size_counter == 5
+        # else:
+        if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
+            done_1 = np.full((1,), True, dtype=np.bool_)
+            done_2 = True
         else:
-            if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
-                done_1 = np.full((1,), True, dtype=np.bool_)
-                done_2 = True
-            else:
-                done_1 = np.full((1,), False, dtype=np.bool_)
-                done_2 = False
+            done_1 = np.full((1,), False, dtype=np.bool_)
+            done_2 = False
                 
              
         rwd_dict = collections.OrderedDict((
@@ -533,8 +537,11 @@ class EnvV0(env_base_0.MujocoEnv):
             
             print(f'inference_time: {inference_time}')
             
-            mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
+            self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+            self.gdino_center = (-2000, -2000)
+            
+            if not self.franka_body_visible():
+                self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), boxes=boxes)
  
             gt_center = int(self.target_x), int(self.target_y)
             
@@ -666,6 +673,16 @@ class EnvV0(env_base_0.MujocoEnv):
         image[0, 2] = (self.IMAGE_WIDTH - 1) / 2.0
         image[1, 2] = (self.IMAGE_HEIGHT - 1) / 2.0
         return image @ focal @ rotation @ translation
+    
+    def franka_body_visible(self):
+        for i in range(4):
+            franka_body_sid = self.sim.model.site_name2id(f'bsite{i+1}') 
+            franka_site_pos = self.sim.data.site_xpos[franka_body_sid]
+            camera_matrix = self.compute_camera_matrix()
+            x, y  = self.world_2_pixel(franka_site_pos, camera_matrix) 
+            if x >= 0 and x < self.IMAGE_WIDTH and y >= 0 and y < self.IMAGE_HEIGHT:
+                return True
+        return False
     
     def is_classifier_prediction_accurate(self, gt_pos, classifier_pos, dist, image_width, image_height):
         mlt = (-0.5 * dist) + 1.5 

@@ -2,6 +2,9 @@
 
     <!-- <light name="top" pos="0 0 2" mode="trackcom"/> -->
     <body name="link0" childclass="panda">
+      <site name="bsite1" pos="0.05 -0.1 0" quat="0 0 0 1" size="0.01" rgba="1 1 1 0"/> 
+      <site name="bsite2" pos="0.05 0.1 0" quat="0 0 0 1" size="0.01" rgba="1 1 1 0"/> 
+
       <inertial mass="0.629769" pos="-0.041018 -0.00014 0.049974"
         fullinertia="0.00315 0.00388 0.004285 8.2904e-7 0.00015 8.2299e-6"/>
       <geom mesh="link0_0" material="off_white" class="visual"/>
@@ -23,6 +26,9 @@
         <geom material="white" mesh="link1" class="visual"/>
         <geom mesh="link1_c" class="collision"/>
         <body name="link2" quat="1 -1 0 0">
+          <site name="bsite3" pos="0.05 -0.025 -0.125" quat="0 0 0 1" size="0.01" rgba="1 1 1 0"/> 
+          <site name="bsite4" pos="0.05 -0.025 0.125" quat="0 0 0 1" size="0.01" rgba="1 1 1 0"/> 
+
           <inertial mass="0.646926" pos="-0.003141 -0.02872 0.003495"
             fullinertia="0.0079620 2.8110e-2 2.5995e-2 -3.925e-3 1.0254e-2 7.04e-4"/>
           <joint name="joint2" range="-1.7628 1.7628"/>
