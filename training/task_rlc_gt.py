@@ -2,14 +2,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
-# import sys
-# sys.path.append('/gpfs/home/wanghuiy/RLC/JSAC') 
-# path = os.getcwd()
-# sys.path.append(path + '/../')
-# sys.path.append(path +'/../JSAC')
-# sys.path.append(path +'/../JSAC/jsac')
-# sys.path.append(path +'/../JSAC/jsac/envs')
-
 import time
 import shutil
 import argparse
@@ -116,8 +108,8 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_model_freq', default=250_000, type=int)
+    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model_freq', default=500_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
@@ -143,24 +135,24 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.mode}_{sync_mode}_{args.task_name}_{args.goal_type}'
+    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
-    # if os.path.exists(args.work_dir):
-    #     inp = input('The work directory already exists. ' +
-    #                 'Please select one of the following: \n' +  
-    #                 '  1) Press Enter to resume the run.\n' + 
-    #                 '  2) Press X to remove the previous work' + 
-    #                 ' directory and start a new run.\n' + 
-    #                 '  3) Press any other key to exit.\n')
-    #     if inp == 'X' or inp == 'x':
-    #         shutil.rmtree(args.work_dir)
-    #         print('Previous work dir removed.')
-    #     elif inp == '':
-    #         pass
-    #     else:
-    #         exit(0)
+    if os.path.exists(args.work_dir):
+        inp = input('The work directory already exists. ' +
+                    'Please select one of the following: \n' +  
+                    '  1) Press Enter to resume the run.\n' + 
+                    '  2) Press X to remove the previous work' + 
+                    ' directory and start a new run.\n' + 
+                    '  3) Press any other key to exit.\n')
+        if inp == 'X' or inp == 'x':
+            shutil.rmtree(args.work_dir)
+            print('Previous work dir removed.')
+        elif inp == '':
+            pass
+        else:
+            exit(0)
 
     make_dir(args.work_dir)
 
@@ -240,7 +232,7 @@ def main(seed=-1, env_name=None):
                                             False)
 
     update_paused = True
-    time.sleep(2)
+    time.sleep(5)
     state = env.reset(create_vid=False)
     
     first_step = True
@@ -298,10 +290,6 @@ def main(seed=-1, env_name=None):
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
             
-            # time.sleep(10)
-            # eval_queue_1.get() 
-            # eval_queue_2.get()
-            
             if env.total_steps < args.env_steps:
                 agent.resume_update()
 
@@ -321,7 +309,6 @@ def main(seed=-1, env_name=None):
 
     end_time = time.time()
     print(f'\nFinished in {end_time - task_start_time}s')
-    
     return args
 
 

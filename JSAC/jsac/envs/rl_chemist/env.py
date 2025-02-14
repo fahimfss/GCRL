@@ -18,7 +18,7 @@ class RLC_Env(gym.Wrapper):
     def __init__(self, 
                  env_name,  
                  image_history=3, 
-                 image_width=120, 
+                 image_width=160, 
                  image_height=90, 
                  env_mode="train",
                  target_obj_num=-1,
@@ -84,7 +84,7 @@ class RLC_Env(gym.Wrapper):
         self._reset = False
         self._create_video = False
         if render_interactive:
-            self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
+            self.viewer = mujoco.viewer.launch_passive(self.env.sim.model, self.env.sim.data)
     @property
     def image_space(self):
         return Box(low=0, high=255, shape=self._image_shape, dtype=np.uint8)

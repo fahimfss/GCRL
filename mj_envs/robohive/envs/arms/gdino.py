@@ -23,12 +23,9 @@ def load_image(image_source, image_size):
     image_transformed, _ = transform(image_source, None)
     return image_transformed
 
-def create_mask(image_source, boxes) -> np.ndarray:
+def create_mask(image_source, xyxy) -> np.ndarray:
     h, w = image_source.shape
     size = h * w
-    boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
-
-    xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
     mask = np.zeros((h, w), dtype=np.uint8)
     center = (-2000, -2000)
         
@@ -41,6 +38,7 @@ def create_mask(image_source, boxes) -> np.ndarray:
         if (mask_size / size) < 0.75:
             center = (int((top_left[0] + bottom_right[0]) / 2), int((top_left[1] + bottom_right[1]) / 2))
             cv.rectangle(mask, top_left, bottom_right, (255), thickness=-1)  # Fill the rectangle
+            # print('tl br', top_left, bottom_right)
             white_pixels = np.argwhere(mask == 255)
         
             centroid = np.mean(white_pixels, axis=0).astype(int)  # Returns (y, x)
@@ -51,9 +49,12 @@ def create_mask(image_source, boxes) -> np.ndarray:
 def g_dino_inference(image, model, caption, height, width):
     pil_image = Image.fromarray(image)
     t1 = time.time()
+    w = 960
+    h = 540
+    xyxy = None
     boxes, logits, phrases = predict(
         model=model,
-        image=load_image(pil_image, [960, 540]),
+        image=load_image(pil_image, [w, h]),
         # image=load_image(pil_image, [width, height]),
         caption=caption,
         box_threshold=BOX_THRESHOLD,
@@ -64,7 +65,10 @@ def g_dino_inference(image, model, caption, height, width):
         _, indices = torch.max(logits, dim = 0)
         boxes = boxes.numpy()
         boxes = boxes[indices] 
-    return boxes, t2-t1
+        boxes = torch.tensor(boxes, dtype=torch.float32) * torch.Tensor([w, h, w, h])
+        xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
+    
+    return xyxy, t2-t1
     
 def async_g_dino_inference(img_shape, mem_name, image_queue, mask_queue):
     model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 

@@ -17,10 +17,12 @@ from robohive.envs.arms.gdino import create_mask, g_dino_inference, async_g_dino
     
 from groundingdino.util.inference import load_model
 
-MASK_SIZE_LIMIT = 30
-MASK_SIZE_LIMIT_DIST = 30
+# MASK_SIZE_LIMIT = 30
+# MASK_SIZE_LIMIT_DIST = 30
 DISTANCE_THRESHOLD = 0.1
-
+TARGET_X_BOUNDARY = 0.2
+TARGET_Y_BOUNDARY = 0.2
+N = 40
 
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
@@ -69,9 +71,15 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_accuracy = 0
         self.gs = 0
         self.distance = 1.0
+        self._target_in_boundary = False
         self.mask_size = 0
         self.TM = time.time()
         self.prev_action = np.array([0] * self.sim.model.nu)
+        
+        self.x_intervals = [(-0.7, 0.7),  (0.7, 0.7),   (-0.7, 0.7),  (-0.7, -0.7), (-0.7, 0.7)]
+        self.y_intervals = [(0.87, 0.87), (-0.8, 0.87), (-0.8, -0.8), (-0.8, 0.87), (-0.8, -0.05)]
+        self.z_intervals = [(0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 0.83)]
+        self.create_all_points()
         
         self.env_mode = env_mode
         self.reward_mode = reward_mode
@@ -127,7 +135,7 @@ class EnvV0(env_base_0.MujocoEnv):
             'object_3': 'chocolate donut',
             'object_4': 'round bottomed flask',
             'object_5': 'yellow toy duck',
-            'object_6': 'yellow banana',
+            'object_6': 'banana',
             'object_7': 'purple alarm clock',
             'object_8': 'pink cup',
             'object_9': 'water bottle',
@@ -139,9 +147,9 @@ class EnvV0(env_base_0.MujocoEnv):
             'object_15': 'digital camera',
             'object_16': 'blue stapler',
             'object_17': 'white egg',
-            'object_18': 'green toy train',
+            'object_18': 'toy train',
             'object_19': 'teapot',
-            'object_20': 'red eyeglasses',
+            'object_20': 'eyeglasses',
         }
         
         self.ofd = {
@@ -250,7 +258,7 @@ class EnvV0(env_base_0.MujocoEnv):
         #     done_1 = np.array([self.mask_size_counter]) == 5
         #     done_2 = self.mask_size_counter == 5
         # else:
-        if self.distance < DISTANCE_THRESHOLD and mask_size >= MASK_SIZE_LIMIT_DIST:
+        if self.distance < DISTANCE_THRESHOLD and self._target_in_boundary:
             done_1 = np.full((1,), True, dtype=np.bool_)
             done_2 = True
         else:
@@ -306,6 +314,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.gdino_num_accurate = 0
         self.gdino_accuracy = 0
         self.distance = 1.0
+        self._target_in_boundary = False
         self.gs = 0
         self.mask_size = 0
         self.mask_size_counter = 0
@@ -345,8 +354,8 @@ class EnvV0(env_base_0.MujocoEnv):
             
             for obj_name in self.TS:
                 if obj_name == self.target_site_name:
-                    x_pos = -0.02
-                    y_pos = 0.31
+                    x_pos = 0
+                    y_pos = 0.38
 
                     self.place_object(obj_name, reset_qpos, x_pos, y_pos)
                     
@@ -418,10 +427,12 @@ class EnvV0(env_base_0.MujocoEnv):
 
     def get_observation(self):
         rgb = self.get_image_data()
-        
+        # print("rgb_shape: ", rgb.shape)
         site_pos = self.sim.data.site_xpos[self.target_sid].copy()
         camera_matrix = self.compute_camera_matrix()
         self.target_x, self.target_y = self.world_2_pixel(site_pos, camera_matrix) 
+        self._target_in_boundary = self.check_target_in_boundary()
+        
         site_pos[0] += 0.04
         rx, ry  = self.world_2_pixel(site_pos, camera_matrix) 
         try:
@@ -533,21 +544,20 @@ class EnvV0(env_base_0.MujocoEnv):
         rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB) 
         
         if self.classifier == "gdino" and self.inference_type == "sync":
-            boxes, inference_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
-            
+            xyxy, inference_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
             print(f'inference_time: {inference_time}')
-            
             self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
             self.gdino_center = (-2000, -2000)
             
-            if not self.franka_body_visible():
-                self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), boxes=boxes)
- 
+            if xyxy is not None and xyxy.size != 0:
+                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+        
             gt_center = int(self.target_x), int(self.target_y)
-            
+                    
             if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
                 self.gdino_num_accurate += 1
-                
+                        
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
@@ -598,6 +608,19 @@ class EnvV0(env_base_0.MujocoEnv):
          
         return np.array(np.fliplr(np.flipud(rgb)))
 
+    def check_target_in_boundary(self):
+        w, h = self.IMAGE_WIDTH, self.IMAGE_HEIGHT
+        x, y = int(self.target_x), int(self.target_y)
+        
+        min_x = w * TARGET_X_BOUNDARY
+        max_x = w * (1 - TARGET_X_BOUNDARY)
+        min_y = h * TARGET_Y_BOUNDARY
+        max_y = h * (1 - TARGET_Y_BOUNDARY)
+
+        if min_x <= x <= max_x and min_y <= y <= max_y:
+            return True
+        
+        return False
     def render(self, mode='rgb_array'):
         # Your implementation here, which should return an RGB array if mode is 'rgb_array'
         mode='rgb_array'
@@ -645,34 +668,25 @@ class EnvV0(env_base_0.MujocoEnv):
         self.camera_id = self.sim.model.camera_name2id('end_effector_cam')
     
     def compute_camera_matrix(self, camera="end_effector_cam"):
-        """Returns the 3x4 camera matrix."""
-        # If the camera is a 'free' camera, we get its position and orientation
-        # from the scene data structure. It is a stereo camera, so we average over
-        # the left and right channels. Note: we call `self.update()` in order to
-        # ensure that the contents of `scene.camera` are correct.
-
-        pos = self.sim.data.cam_xpos[self.sim.model.camera_name2id(camera)]
-        rot_mat = self.sim.data.cam_xmat[self.sim.model.camera_name2id(camera)].reshape(3, 3)
         camera_id = self.sim.model.camera_name2id(camera)
-        fov = self.sim.model.cam_fovy[camera_id]
+        pos = np.array(self.sim.data.cam_xpos[camera_id], dtype=np.float64)
+        rot_mat = np.array(self.sim.data.cam_xmat[camera_id], dtype=np.float64).reshape(3, 3)
+        fov = float(self.sim.model.cam_fovy[camera_id])
 
-        # Translation matrix (4x4).
-        translation = np.eye(4)
+        translation = np.eye(4, dtype=np.float64)
         translation[0:3, 3] = -pos
 
-        # Rotation matrix (4x4).
-        rotation = np.eye(4)
+        rotation = np.eye(4, dtype=np.float64)
         rotation[0:3, 0:3] = rot_mat.T
 
-        # Focal transformation matrix (3x4).
-        focal_scaling = (1./np.tan(np.deg2rad(fov)/2)) * self.IMAGE_HEIGHT / 2.0
-        focal = np.diag([-focal_scaling, focal_scaling, 1.0, 0])[0:3, :]
+        focal_scaling = (1.0 / np.tan(np.deg2rad(fov) / 2.0)) * self.IMAGE_HEIGHT / 2.0
+        focal = np.diag(np.array([-focal_scaling, focal_scaling, 1.0, 0], dtype=np.float64))[0:3, :]
 
-        # Image matrix (3x3).
-        image = np.eye(3)
+        image = np.eye(3, dtype=np.float64)
         image[0, 2] = (self.IMAGE_WIDTH - 1) / 2.0
         image[1, 2] = (self.IMAGE_HEIGHT - 1) / 2.0
         return image @ focal @ rotation @ translation
+
     
     def franka_body_visible(self):
         for i in range(4):
@@ -704,12 +718,92 @@ class EnvV0(env_base_0.MujocoEnv):
         w = np.ones((4,), dtype=float)
         w[0:3] = world_coordinate
         xs, ys, s = camera_matrix @ w 
+        # print(f'world_coordinate: {world_coordinate}, xs: {xs}, ys: {ys}, s: {s}')
         x = xs / s
         y = ys / s 
         return np.round(x).astype(int), np.round(y).astype(int)
     
     def calculate_img_reward(self, perc):        
         return (2.0/(1+np.exp(-perc*10.0))) - 1.0 
+    
+    def create_points(self, xmin, xmax, ymin, ymax, zmin, zmax):
+        if np.isclose(zmin, zmax):
+            x_coords = np.linspace(xmin, xmax, N, dtype=np.float64)
+            y_coords = np.linspace(ymin, ymax, N, dtype=np.float64)
+            x_grid, y_grid = np.meshgrid(x_coords, y_coords)
+            z_grid = np.full_like(x_grid, zmin, dtype=np.float64)
+            return np.column_stack((x_grid.ravel(), y_grid.ravel(), z_grid.ravel()))
+        p1 = np.array([xmin, ymin, zmin], dtype=np.float64)
+        p2 = np.array([xmax, ymax, zmin], dtype=np.float64)
+        line_points = np.linspace(p1, p2, N, dtype=np.float64)
+        z_values = np.linspace(zmin, zmax, N, dtype=np.float64)
+        x = np.repeat(line_points[:, 0], N).astype(np.float64)
+        y = np.repeat(line_points[:, 1], N).astype(np.float64)
+        z = np.tile(z_values, N).astype(np.float64)
+        return np.column_stack((x, y, z))
+
+
+    def create_all_points(self):
+        x_intervals = self.x_intervals
+        y_intervals = self.y_intervals
+        z_intervals = self.z_intervals
+        pts = [np.array(self.create_points(xmin, xmax, ymin, ymax, zmin, zmax), dtype=np.float64) for (xmin, xmax), (ymin, ymax), (zmin, zmax) in zip(x_intervals, y_intervals, z_intervals)]
+        for i in range(4):
+            franka_body_sid = self.sim.model.site_name2id(f'bsite{i+1}')
+            franka_site_pos = np.array(self.sim.data.site_xpos[franka_body_sid], dtype=np.float64)
+            pts.append(franka_site_pos)
+        self.excluded_points = np.vstack(pts).astype(np.float64)
+        print('excluded_points shape: ', self.excluded_points.shape)
+
+        
+    # def world_2_pixel_vec(self, world_coordinates, camera_matrix):
+    #     ones = np.ones((world_coordinates.shape[0], 1))
+    #     homo_coords = np.hstack((world_coordinates, ones))
+    #     proj = homo_coords @ camera_matrix.T
+    #     xs, ys, s = proj[:, 0], proj[:, 1], proj[:, 2]
+        
+    #     s_abs = np.where(s != 0, np.abs(s), 1e-12)
+    #     x_pixels = xs / s_abs
+    #     y_pixels = ys / s_abs
+    
+    #     # with np.errstate(divide='ignore', invalid='ignore'):
+    #     #     x_pixels = np.where(s != 0, xs / s, -2000)
+    #     #     y_pixels = np.where(s != 0, ys / s, -2000)
+    #     return np.round(x_pixels).astype(int), np.round(y_pixels).astype(int)
+    
+    def world_2_pixel_vec(self, world_coordinates, camera_matrix):
+        world_coordinates = np.atleast_2d(np.asarray(world_coordinates, dtype=np.float64))
+        camera_matrix = np.asarray(camera_matrix, dtype=np.float64)
+        ones = np.ones((world_coordinates.shape[0], 1), dtype=np.float64)
+        homo_coords = np.hstack((world_coordinates, ones))
+        proj = homo_coords @ camera_matrix.T
+        xs, ys, s = proj[:, 0], proj[:, 1], proj[:, 2]
+        x_pixels = np.where(s < 0, xs / s, -2000)
+        y_pixels = np.where(s < 0, ys / s, -2000)
+        return np.round(x_pixels).astype(int), np.round(y_pixels).astype(int)
+
+
+
+    def check_in_region(self, camera_matrix, xyxy):
+        x1, y1, x2, y2 = int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])
+        
+        x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
+        for i in range(x_all.shape[0]):
+            x, y = x_all[i], y_all[i]
+            if ((x >= x1) and (x < x2) and (y >= y1) and (y < y2)):
+                site_pos = self.sim.data.site_xpos[self.target_sid].copy()
+                camera_matrix = self.compute_camera_matrix()
+                cx, cy = self.world_2_pixel(site_pos.copy(), camera_matrix) 
+                p2 = self.excluded_points[i]
+                ax, ay = self.world_2_pixel(p2.copy(), camera_matrix) 
+                
+                print('camera matrix: ', camera_matrix)
+                print(f'cx: {cx}, cy: {cy}', 'site pos: ', site_pos)
+                print(f'ax: {ax}, ay: {ay}, p2: {p2}')
+                print(f"_x: {x}, _y: {y}, excluded: {p2}")
+                print(f"{i}, X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2}")
+                return True
+        return False
     
     def close(self):
         self.image_queue.put("close")

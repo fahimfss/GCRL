@@ -97,8 +97,8 @@ class EnvV1(env_base_0.MujocoEnv):
             'object_5': ('yellow toy duck', (1.4, 1.3), (0, -0.02)),
             'object_6': ('banana', (1.3, 1.7), (-0.02, 0)),
             'object_7': ('purple alarm clock', (1.4, 1.4), (0, -0.03)),
-            'object_8': ('cup', (1.4, 1.5), (0, -0.04)),
-            'object_9': ('blue water bottle', (1.1, 1.4), (0, 0)),
+            'object_8': ('pink cup', (1.4, 1.5), (0, -0.04)),
+            'object_9': ('water bottle', (1.1, 1.4), (0, 0)),
             'object_10': ('light bulb', (1.4, 1.1), (0, 0)),
             'object_11': ('wine glass', (1.1, 1.35), (0, 0)),
             'object_12': ('copper bowl', (1.35, 1.2), (0, -0.02)),
@@ -107,9 +107,9 @@ class EnvV1(env_base_0.MujocoEnv):
             'object_15': ('digital camera', (1.45, 1.1), (0, 0)),
             'object_16': ('blue stapler', (1.45, 1), (0, 0)),
             'object_17': ('white egg', (1, 1), (0, 0)),
-            'object_18': ('green toy train', (1.4, 1), (0, 0)),
+            'object_18': ('toy train', (1.4, 1), (0, 0)),
             'object_19': ('teapot', (1.4, 1.3), (0, 0)),
-            'object_20': ('red eyeglasses', (1.4, 1.2), (0, 0))
+            'object_20': ('eyeglasses', (1.4, 1.2), (0, 0))
         }
         
         self.ofd = {
@@ -136,6 +136,7 @@ class EnvV1(env_base_0.MujocoEnv):
         } 
  
         self.ofd_index = ofd_index
+        print('ofd_index:', ofd_index)
 
         self.TS = list(self.objects.keys())
         self.TN = []

@@ -19,6 +19,14 @@ from jsac.envs.rl_chemist.env import RLC_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
 
+import jax
+import flax
+import numpy as np
+from jax import random
+import jax.numpy as jnp 
+from jsac.algo.agent import sample_actions
+from jsac.algo.initializers import init_inference_actor, get_init_data
+
 config = {
     'conv': [
         # in_channel, out_channel, kernel_size, stride
@@ -41,13 +49,13 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
-    # parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
     parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--inference_type', default='sync', type=str)
+    parser.add_argument('--reward_mode', default="mask_size", type=str) 
     parser.add_argument('--step_time', default=0.0, type=float)
     parser.add_argument('--episode_steps', default=150, type=int) 
 
@@ -74,7 +82,7 @@ def parse_args():
     parser.add_argument('--actor_sync_freq', default=8, type=int)   # Sync mode: False
     
     # encoder
-    parser.add_argument('--spatial_softmax', default=True, action='store_true')    # Mode: img, img_prop
+    parser.add_argument('--spatial_softmax', default=False, action='store_true')    # Mode: img, img_prop
 
     # sac
     parser.add_argument('--temp_lr', default=1e-4, type=float)
@@ -85,7 +93,7 @@ def parse_args():
     parser.add_argument('--num_cameras', default=1, type=int)
     parser.add_argument('--update_every', default=1, type=int)
     parser.add_argument('--log_every', default=1, type=int)
-    parser.add_argument('--eval_steps', default=-10_000, type=int)
+    parser.add_argument('--eval_steps', default=10_000, type=int)
     parser.add_argument('--num_eval_episodes', default=10, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tensorboard', default=False, 
@@ -177,7 +185,9 @@ def main(seed=-1, env_name=None):
                    args.image_height,
                    classifier=args.classifier,
                    inference_type=args.inference_type,
-                   step_time=step_time)
+                   step_time=step_time,
+                   reward_mode='mask_size',
+                   ofd_index=args.seed)
     env = WrappedEnv(env, args.episode_steps)
 
     set_seed_everywhere(seed=args.seed)
@@ -186,6 +196,10 @@ def main(seed=-1, env_name=None):
     args.proprioception_shape = env.proprioception_space.shape
     args.action_shape = env.action_space.shape
     args.env_action_space = env.action_space
+    
+    print(f'Image shape: {args.image_shape}')
+    print(f'Proprioception shape: {args.proprioception_shape}')
+    print(f'Action shape: {args.action_shape}')
 
     if args.sync_mode:
         sync_queue = None
@@ -197,33 +211,27 @@ def main(seed=-1, env_name=None):
     if args.eval_steps > 0:
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC'
-        eval_args['sync'] = 'true'
+        eval_args['ofd_index'] = args.seed
+        # eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()
-        eval_queue_2 = mp.Queue()
         path1 = os.path.join(args.work_dir, 'eval_log')
-        path2 = os.path.join(args.work_dir, 'eval_result') 
         make_dir(path1)
-        make_dir(path2)
         eval_process_1 = start_eval_process(eval_args, 
                                             path1, 
                                             eval_queue_1, 
-                                            args.num_eval_episodes)
-        eval_process_2 = start_eval_process(eval_args, 
-                                            path2, 
-                                            eval_queue_2, 
                                             args.num_eval_episodes,
                                             False)
 
     update_paused = True
     time.sleep(5)
-    state = env.reset(create_vid=True)
+    state = env.reset(create_vid=False)
     
     first_step = True
 
     while env.total_steps < args.env_steps:
         t1 = time.time()
         if env.total_steps < args.init_steps + 100:
-            action = env.action_space.sample()
+            action = np.random.uniform(-1, 1, args.action_shape[-1])
         else:
             action = agent.sample_actions(state)
         t2 = time.time()
@@ -237,13 +245,7 @@ def main(seed=-1, env_name=None):
         state = next_state
 
         if done or 'truncated' in info: 
-            # if args.mask_type == "gt_gdino_async" and env.total_steps >= args.gt_steps:
-            #     state = env.reset(create_vid=False, set_gdino_async=True)
-            #     args.gt_steps = args.env_steps * 2
-            #     eval_queue_1.put('start_gdino_async')
-            #     eval_queue_2.put('start_gdino_async')
-            # else:
-            state = env.reset(create_vid=True)
+            state = env.reset(create_vid=False)
             first_step = True
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time
@@ -278,13 +280,8 @@ def main(seed=-1, env_name=None):
             agent.pause_update()
             eval_queue_1.put(agent.get_actor_params())
             eval_queue_1.put(env.total_steps)
-            time.sleep(10)
+            time.sleep(5)
             eval_queue_1.get()
-            
-            eval_queue_2.put(agent.get_actor_params())
-            eval_queue_2.put(env.total_steps)
-            time.sleep(10)
-            eval_queue_2.get()
             if env.total_steps < args.env_steps:
                 agent.resume_update()
 
@@ -295,20 +292,89 @@ def main(seed=-1, env_name=None):
         
     if args.eval_steps > 0:    
         eval_queue_1.put('close')
-        eval_queue_2.put('close')
         eval_process_1.join()
-        eval_process_2.join()
         
     L.plot()
     L.close()
     env.close()
-
     agent.close()
 
     end_time = time.time()
     print(f'\nFinished in {end_time - task_start_time}s')
+    return args
 
+
+def eval(args):
+    step_time = None
+    if args.step_time > 0:
+        step_time = args.step_time
+    
+    env = RLC_Env(args.env_name, 
+                   args.image_history, 
+                   args.image_width, 
+                   args.image_height, 
+                   mask_delay_type=args.mask_delay_type,
+                   mask_delay_steps=args.mask_delay_steps,
+                   goal_type=args.goal_type,
+                   reward_mode=args.reward_mode,
+                   step_time=step_time,
+                   ofd_index=args.seed,
+                   env_mode="eval_ofd")
+    
+    env = WrappedEnv(env, args.episode_steps)
+
+    image_shape = env.image_space.shape 
+    proprioception_shape = env.proprioception_space.shape
+    action_shape = env.action_space.shape
+    env_action_space = env.action_space
+
+    rng = jax.random.PRNGKey(0)
+    rng, actor = init_inference_actor(rng, 
+                                      image_shape, 
+                                      proprioception_shape, 
+                                      config, 
+                                      action_shape[-1], 
+                                      False, 
+                                      'img_prop', 
+                                      jnp.float32)
+    
+    rng, key1, key2 = random.split(rng, 3)
+    params= actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
+
+    best_actor_path = f'{args.work_dir}/eval_log/best_actor_params.pkl'
+    
+    with open(best_actor_path, 'rb') as f: 
+        params = flax.serialization.from_bytes(params, f.read())
+ 
+    num_episods_per_object = 25
+    for object_id in range(20): 
+        stats={'object_id': object_id}
+        dones=[]
+        for episode in range(num_episods_per_object):
+            state = env.reset(object_id=object_id)  
+            while True: 
+                rng, action = sample_actions(rng, 
+                                            actor.apply, 
+                                            params, 
+                                            state, 
+                                            'img_prop', 
+                                            True)
+
+                action = np.asarray(action).clip(-1, 1)
+                state, reward, done, info = env.step(action) 
+                if done or 'truncated' in info: 
+                    if done:
+                        dones.append(1)
+                    else:
+                        dones.append(0)
+                    break
+                
+        stats['dones'] = dones
+        with open(f'{args.work_dir}/eval_ofd_logs.txt', 'a') as f:
+            f.write(str(stats) + '\n')
+                
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    main() 
+    args = main() 
+    eval(args)
