@@ -70,14 +70,16 @@ class MetersGroup(object):
                              'eval_step',
                              'elapsed_time',
                              'gdino_step',
-                             'gdino_accuracy']
+                             'gdino_accuracy',
+                             'target_object']
         self._int_value_items = ['num_updates', 
                                  'battery_charge', 
                                  'episode', 
                                  'episode_steps', 
                                  'eval_step',
                                  'step',
-                                 'gdino_step']
+                                 'gdino_step',
+                                 'target_object']
 
     def log(self, key, value, n=1):
         if key in self._value_items:

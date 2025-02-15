@@ -467,22 +467,44 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         else:
             visual_dict = {}
 
-        env_info = {
-            'time': self.obs_dict['time'][()],          # MDP(t)
-            'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
-            # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
-            # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
-            'done': self.rwd_dict['done'][()],          # MDP(t)
-            'obs_dict': self.obs_dict,                  # MDP(t)
-            'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
-            'proprio_dict': self.proprio_dict,          # MDP(t)
-            'rwd_dict': self.rwd_dict,                  # MDP(t)
-            'state': self.get_env_state(),              # MDP(t)
-            'x': self.target_x,
-            'y': self.target_y,
-            'prompt': self.target_name,
-            'reach_err': self.obs_dict['reach_err'],
-        }
+        if hasattr(self, 'classifier') and self.classifier == 'gdino':            
+            env_info = {
+                'time': self.obs_dict['time'][()],          # MDP(t)
+                'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
+                # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
+                # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
+                'done': self.rwd_dict['done'][()],          # MDP(t)
+                'obs_dict': self.obs_dict,                  # MDP(t)
+                'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
+                'proprio_dict': self.proprio_dict,          # MDP(t)
+                'rwd_dict': self.rwd_dict,                  # MDP(t)
+                'state': self.get_env_state(),              # MDP(t)
+                'x': self.target_x,
+                'y': self.target_y,
+                'prompt': self.target_name,
+                'reach_err': self.obs_dict['reach_err'],
+                'gdino_step':self.gs,
+                'gdino_time':self.gdino_time,
+                'gdino_accuracy':self.gdino_accuracy,
+                'target_object':self.epi_target_object_num,
+            }
+        else:
+            env_info = {
+                'time': self.obs_dict['time'][()],          # MDP(t)
+                'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)
+                # 'rwd_sparse': self.rwd_dict['sparse'][()],  # MDP(t)
+                # 'solved': self.rwd_dict['solved'][()],      # MDP(t)
+                'done': self.rwd_dict['done'][()],          # MDP(t)
+                'obs_dict': self.obs_dict,                  # MDP(t)
+                'visual_dict': visual_dict,                 # MDP(t), will be {} if user hasn't explicitly updated self.visual_dict at the current time
+                'proprio_dict': self.proprio_dict,          # MDP(t)
+                'rwd_dict': self.rwd_dict,                  # MDP(t)
+                'state': self.get_env_state(),              # MDP(t)
+                'x': self.target_x,
+                'y': self.target_y,
+                'prompt': self.target_name,
+                'reach_err': self.obs_dict['reach_err'],
+            }
         return env_info
 
 

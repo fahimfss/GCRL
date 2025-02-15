@@ -184,6 +184,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_sid = self.sim.model.site_name2id(self.TS[0]) 
         self.r = 2
         self.target_site_name = self.TS[0]
+        self.epi_target_object_num = 0
         
         if 'target_obj_num' in kwargs:
             self.target_obj_num = kwargs['target_obj_num'] 
@@ -336,7 +337,8 @@ class EnvV0(env_base_0.MujocoEnv):
             number = random.choice(ofd_items) 
         else:
             number = self.target_obj_num 
-             
+        
+        self.epi_target_object_num = number
         reset_qpos = self.sim.model.key_qpos[0].copy()
         
         self.target_name = self.TN[number] 
@@ -544,7 +546,7 @@ class EnvV0(env_base_0.MujocoEnv):
         rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB) 
         
         if self.classifier == "gdino" and self.inference_type == "sync":
-            xyxy, inference_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
+            xyxy, self.gdino_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
             # print(f'inference_time: {inference_time}')
             self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
             self.gdino_center = (-2000, -2000)
