@@ -210,7 +210,7 @@ def main(seed=-1, env_name=None):
         
     if args.eval_steps > 0:
         eval_args = vars(args)
-        eval_args['env_type'] = 'RLC'
+        eval_args['env_type'] = 'RLC_ic'
         eval_args['ofd_index'] = args.seed
         # eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()

@@ -77,7 +77,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.prev_action = np.array([0] * self.sim.model.nu)
         
         self.x_intervals = [(-0.7, 0.7),  (0.7, 0.7),   (-0.7, 0.7),  (-0.7, -0.7), (-0.7, 0.7)]
-        self.y_intervals = [(0.87, 0.87), (-0.8, 0.87), (-0.8, -0.8), (-0.8, 0.87), (-0.8, -0.05)]
+        self.y_intervals = [(0.87, 0.87), (-0.8, 0.87), (-0.8, -0.8), (-0.8, 0.87), (-0.8, 0.01)]
         self.z_intervals = [(0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 0.83)]
         self.create_all_points()
         
@@ -545,7 +545,7 @@ class EnvV0(env_base_0.MujocoEnv):
         
         if self.classifier == "gdino" and self.inference_type == "sync":
             xyxy, inference_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
-            print(f'inference_time: {inference_time}')
+            # print(f'inference_time: {inference_time}')
             self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
             self.gdino_center = (-2000, -2000)
             
@@ -784,25 +784,34 @@ class EnvV0(env_base_0.MujocoEnv):
 
 
 
-    def check_in_region(self, camera_matrix, xyxy):
-        x1, y1, x2, y2 = int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])
+    # def check_in_region(self, camera_matrix, xyxy):
+    #     x1, y1, x2, y2 = int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])
         
-        x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
-        for i in range(x_all.shape[0]):
-            x, y = x_all[i], y_all[i]
-            if ((x >= x1) and (x < x2) and (y >= y1) and (y < y2)):
-                site_pos = self.sim.data.site_xpos[self.target_sid].copy()
-                camera_matrix = self.compute_camera_matrix()
-                cx, cy = self.world_2_pixel(site_pos.copy(), camera_matrix) 
-                p2 = self.excluded_points[i]
-                ax, ay = self.world_2_pixel(p2.copy(), camera_matrix) 
+    #     x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
+    #     for i in range(x_all.shape[0]):
+    #         x, y = x_all[i], y_all[i]
+    #         if ((x >= x1) and (x < x2) and (y >= y1) and (y < y2)):
+    #             site_pos = self.sim.data.site_xpos[self.target_sid].copy()
+    #             camera_matrix = self.compute_camera_matrix()
+    #             cx, cy = self.world_2_pixel(site_pos.copy(), camera_matrix) 
+    #             p2 = self.excluded_points[i]
+    #             ax, ay = self.world_2_pixel(p2.copy(), camera_matrix) 
                 
-                print('camera matrix: ', camera_matrix)
-                print(f'cx: {cx}, cy: {cy}', 'site pos: ', site_pos)
-                print(f'ax: {ax}, ay: {ay}, p2: {p2}')
-                print(f"_x: {x}, _y: {y}, excluded: {p2}")
-                print(f"{i}, X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2}")
-                return True
+    #             print('camera matrix: ', camera_matrix)
+    #             print(f'cx: {cx}, cy: {cy}', 'site pos: ', site_pos)
+    #             print(f'ax: {ax}, ay: {ay}, p2: {p2}')
+    #             print(f"_x: {x}, _y: {y}, excluded: {p2}")
+    #             print(f"{i}, X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2}")
+    #             return True
+    #     return False
+    
+    def check_in_region(self, camera_matrix, xyxy):
+        x1, y1, x2, y2 = map(int, xyxy[:4])
+        x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
+        mask = (x_all >= x1) & (x_all < x2) & (y_all >= y1) & (y_all < y2)
+        if mask.any():
+            # print('---------------------------------->>>>')
+            return True
         return False
     
     def close(self):

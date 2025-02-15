@@ -121,7 +121,7 @@ class RLC_Env(gym.Wrapper):
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
         # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], extra), axis=1)) 
-        # cv2.waitKey(10)
+        # cv2.waitKey(1)
         # print(info['prompt'])
         
         if self._create_video: 
@@ -176,7 +176,7 @@ class RLC_Env(gym.Wrapper):
         # ln = len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
         # img_name = f'{path}{ln}.png'
         # cv2.imshow("w1", np.concatenate((new_img[:, :, 0:3], extra), axis=1)) 
-        # cv2.waitKey(10)
+        # cv2.waitKey(1)
         
         if create_vid: 
             print("Video will be created. ")
