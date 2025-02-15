@@ -331,10 +331,14 @@ class EnvV0(env_base_0.MujocoEnv):
         train_items = list(set(range(20)) - set(ofd_items))
         
         if self.env_mode == "train" or self.env_mode == "eval":
-            print(train_items)
             number = random.choice(train_items)
         elif self.env_mode == "eval_ofd":
-            number = random.choice(ofd_items) 
+            if 'object_id' in kwargs:
+                number = kwargs['object_id']
+                kwargs.pop('object_id')
+            else:
+                number = number = random.choice(list(range(20)))
+            print(f'Object Id: {number}')
         else:
             number = self.target_obj_num 
         
@@ -817,7 +821,9 @@ class EnvV0(env_base_0.MujocoEnv):
         return False
     
     def close(self):
-        self.image_queue.put("close")
-        self.mask_process.join()
+        if self.inference_type == 'async':
+            self.image_queue.put("close")
+            self.mask_process.join()
+        
     
     

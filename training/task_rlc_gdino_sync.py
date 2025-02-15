@@ -212,7 +212,7 @@ def main(seed=-1, env_name=None):
         eval_args = vars(args)
         eval_args['env_type'] = 'RLC_ic'
         eval_args['ofd_index'] = args.seed
-        # eval_args['sync'] = 'true'
+        eval_args['sync'] = 'true'
         eval_queue_1 = mp.Queue()
         path1 = os.path.join(args.work_dir, 'eval_log')
         make_dir(path1)
@@ -312,12 +312,11 @@ def eval(args):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height, 
-                   mask_delay_type=args.mask_delay_type,
-                   mask_delay_steps=args.mask_delay_steps,
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
+                   args.image_height,
+                   classifier=args.classifier,
+                   inference_type=args.inference_type,
                    step_time=step_time,
+                   reward_mode='mask_size',
                    ofd_index=args.seed,
                    env_mode="eval_ofd")
     
