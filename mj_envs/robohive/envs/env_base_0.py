@@ -467,7 +467,7 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         else:
             visual_dict = {}
 
-        if hasattr(self, 'classifier') and self.classifier == 'gdino':            
+        if hasattr(self, 'classifier') and (self.classifier == 'gdino' or self.classifier == 'detic'):            
             env_info = {
                 'time': self.obs_dict['time'][()],          # MDP(t)
                 'rwd_dense': self.rwd_dict['dense'][()],    # MDP(t)

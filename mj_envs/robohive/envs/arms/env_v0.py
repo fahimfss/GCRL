@@ -838,6 +838,7 @@ class EnvV0(env_base_0.MujocoEnv):
     #     return False
     
     def check_in_region(self, camera_matrix, xyxy):
+        return False # w/o curtain
         x1, y1, x2, y2 = map(int, xyxy[:4])
         x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
         mask = (x_all >= x1) & (x_all < x2) & (y_all >= y1) & (y_all < y2)

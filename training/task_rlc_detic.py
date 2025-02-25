@@ -128,7 +128,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.classifier}_{args.inference_type}'
+    args.name = f'{args.env_name}_{args.classifier}_{args.inference_type}_{args.task_name}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
