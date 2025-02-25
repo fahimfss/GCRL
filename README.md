@@ -30,6 +30,9 @@ cd Detic && pip install -r requirements.txt
 wget https://openaipublic.azureedge.net/clip/models/40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af/ViT-B-32.pt -O Detic/models/ViT-B-32.pt
 
 wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O Detic/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+```
 
-
+# For Owlv2
+```bash
+Download it from https://huggingface.co/google/owlv2-base-patch16-ensemble/tree/main inside owlv2 folder
 ```

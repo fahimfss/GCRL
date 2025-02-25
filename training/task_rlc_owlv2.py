@@ -49,11 +49,11 @@ def parse_args():
                         help="Modes in ['img', 'img_prop', 'prop']")
     
     parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
-    parser.add_argument('--task_name', default='detic_franka', type=str)
+    parser.add_argument('--task_name', default='owlv2_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--classifier', default='detic', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
+    parser.add_argument('--classifier', default='owlv2', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--inference_type', default='sync', type=str)
     parser.add_argument('--reward_mode', default="mask_size", type=str) 
     parser.add_argument('--step_time', default=0.0, type=float)
