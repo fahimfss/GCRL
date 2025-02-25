@@ -1,4 +1,3 @@
-# OWLV2DIR='/home/hany606/repos/rlc/RLC/Detic/'
 import os
 OWLV2DIR = os.path.dirname(os.path.abspath(__file__))
 OWLV2DIR = os.path.join(OWLV2DIR, '../../../../owlv2')
