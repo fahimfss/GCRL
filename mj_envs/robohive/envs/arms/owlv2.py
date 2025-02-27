@@ -2,7 +2,7 @@ import os
 OWLV2DIR = os.path.dirname(os.path.abspath(__file__))
 OWLV2DIR = os.path.join(OWLV2DIR, '../../../../owlv2')
 import sys
-from transformers import pipeline
+# from transformers import pipeline
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 import time
 import numpy as np
@@ -10,32 +10,35 @@ from PIL import Image
 import torch
 
 class OwlV2:
-    model_path=os.path.join(OWLV2DIR, 'models/owlv2-base-patch16-ensemble')
+    model_path = os.path.join(OWLV2DIR, 'models/owlv2-base-patch16-ensemble')
     def __init__(self, vocabs):
         print(f"Load OwlV2 classifier from {self.model_path}")
         self.vocabs = vocabs
-        # self.predictor = pipeline(model=self.model_path, task="zero-shot-object-detection")
-        self.predictor = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_path)
+        self.predictor = AutoModelForZeroShotObjectDetection.from_pretrained(self.model_path).to("cuda")
         self.processor = AutoProcessor.from_pretrained(self.model_path)
-        self._cls_caption_ = {i:v for i,v in enumerate(vocabs)}
+        self.cpu_device = torch.device("cpu")
+
+        self._cls_caption_ = {i: v for i, v in enumerate(vocabs)}
         self.get_cls_caption = lambda c: self._cls_caption_[c]
 
     def predict(self, image, caption):
-        # return self.predictor(image, candidate_labels=self.vocabs)
-        inputs = self.processor(text=[caption], images=image, return_tensors="pt")
-        outputs = self.predictor(**inputs)
-        target_sizes = torch.tensor([image.size[::-1]])
+        inputs = self.processor(text=[caption], images=image, return_tensors="pt").to("cuda")
+        with torch.no_grad():
+            outputs = self.predictor(**inputs)
+        target_sizes = torch.tensor([image.size[::-1]], device="cuda")
         results = self.processor.post_process_object_detection(outputs, threshold=0.1, target_sizes=target_sizes)[0]
+
         return results
+    
 def owlv2_inference(_image, model, caption):
     # https://huggingface.co/docs/transformers/en/tasks/zero_shot_object_detection
     image = Image.fromarray(_image) if isinstance(_image, np.ndarray) else _image
     t1 = time.time()
     with torch.no_grad():
         results = model.predict(image, caption)
-    scores = results["scores"].tolist()
-    labels = results["labels"].tolist()
-    boxes = results["boxes"].tolist()
+    scores = results["scores"].to(model.cpu_device).tolist()
+    labels = results["labels"].to(model.cpu_device).tolist()
+    boxes = results["boxes"].to(model.cpu_device).tolist()
     
     if len(scores) > 0:
         mx_idx = results["scores"].argmax().item()

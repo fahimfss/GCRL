@@ -2,7 +2,7 @@
 #SBATCH --account=def-ashique
 #SBATCH --cpus-per-task=3
 #SBATCH --array=[0-19]
-#SBATCH --time=0-40:00
+#SBATCH --time=0-48:00
 #SBATCH --mem=70G
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=wo_curtain
