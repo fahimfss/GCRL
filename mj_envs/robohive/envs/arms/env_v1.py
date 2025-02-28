@@ -389,6 +389,7 @@ class EnvV1(env_base_0.MujocoEnv):
             print('Other objects: ', item_names)
             
             site_names.append(self.target_site_name)
+            random.shuffle(site_names)
 
             for obj_name in self.TS:
                 if obj_name not in site_names:
