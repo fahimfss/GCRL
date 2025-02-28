@@ -10,7 +10,8 @@
 
 #module load StdEnv/2023 gcc opencv cuda/12.6 python/3.10 mujoco/3.1.6
 # module load StdEnv/2023 gcc opencv cuda/12.2 python/3.10 mujoco/3.1.6
-module load StdEnv/2023 gcc opencv cuda/12.6 python/3.10 mujoco/3.1.6
+#module load StdEnv/2023 gcc opencv cuda/12.6 python/3.10 mujoco/3.1.6
+module load StdEnv/2023 gcc opencv/4.9.0 cuda/12.6 python/3.10 mujoco/3.1.6
 
 # source /home/fshahri1/projects/def-ashique/fshahri1/RLCENV/bin/activate
 source /home/hany606/envs/rlc_tmp/bin/activate
