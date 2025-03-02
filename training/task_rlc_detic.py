@@ -64,7 +64,7 @@ def parse_args():
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=400_000, type=int)
+    parser.add_argument('--env_steps', default=300_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -376,4 +376,4 @@ def eval(args):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     args = main() 
-    eval(args)
+    # eval(args)
