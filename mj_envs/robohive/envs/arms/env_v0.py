@@ -16,6 +16,8 @@ from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, Ob
 from robohive.envs.arms.gdino import create_mask, g_dino_inference, async_g_dino_inference
     
 from groundingdino.util.inference import load_model
+from robohive.envs.arms.detic import Detic, detic_inference
+from robohive.envs.arms.owlv2 import OwlV2, owlv2_inference
 
 # MASK_SIZE_LIMIT = 30
 # MASK_SIZE_LIMIT_DIST = 30
@@ -23,6 +25,7 @@ DISTANCE_THRESHOLD = 0.1
 TARGET_X_BOUNDARY = 0.2
 TARGET_Y_BOUNDARY = 0.2
 N = 40
+
 
 class EnvV0(env_base_0.MujocoEnv):
     DEFAULT_OBS_KEYS = ['qp_robot', 'prev_action']
@@ -89,6 +92,31 @@ class EnvV0(env_base_0.MujocoEnv):
         self.classifier = classifier
         self.inference_type = inference_type 
         
+        self.objects = {
+            'object_1': 'red apple',
+            'object_2': 'green block',
+            'object_3': 'chocolate donut',
+            'object_4': 'round bottomed flask',
+            'object_5': 'yellow toy duck',
+            'object_6': 'banana',
+            'object_7': 'purple alarm clock',
+            'object_8': 'pink cup',
+            'object_9': 'water bottle',
+            'object_10': 'light bulb',
+            'object_11': 'wine glass',
+            'object_12': 'copper bowl',
+            'object_13': 'silver headphone',
+            'object_14': 'hammer',
+            'object_15': 'digital camera',
+            'object_16': 'blue stapler',
+            'object_17': 'white egg',
+            'object_18': 'toy train',
+            'object_19': 'teapot',
+            'object_20': 'eyeglasses',
+        }
+        # ['red apple', 'green block', 'chocolate donut', 'round bottomed flask', 'yellow toy duck', 'banana', 'purple alarm clock', 'pink cup', 'water bottle', 'light bulb', 'wine glass', 'copper bowl', 'silver headphone', 'hammer', 'digital camera', 'blue stapler', 'white egg', 'toy train', 'teapot', 'eyeglasses']
+
+        
         if reward_mode == "distance":
             weighted_reward_keys = {
                 "distance": -1.0, 
@@ -124,34 +152,22 @@ class EnvV0(env_base_0.MujocoEnv):
             self.mask_process.start()
             self.images_sent = 0
             self.masks_recieved = 0
+        elif self.classifier == "detic":
+            assert self.inference_type == "sync"
+            # It is not implemented for async for now
+            vocabs = [v for v in self.objects.values()]
+            self.classifier_model = Detic(vocabs)
+            
+        elif self.classifier == "owlv2":
+            assert self.inference_type == "sync"
+            # It is not implemented for async for now
+            vocabs = [v for v in self.objects.values()]
+            self.classifier_model = OwlV2(vocabs)
         
         self.target_name = "red apple"
         self._min_dist = 10000
         self.mask_size_counter = 0
-        
-        self.objects = {
-            'object_1': 'red apple',
-            'object_2': 'green block',
-            'object_3': 'chocolate donut',
-            'object_4': 'round bottomed flask',
-            'object_5': 'yellow toy duck',
-            'object_6': 'banana',
-            'object_7': 'purple alarm clock',
-            'object_8': 'pink cup',
-            'object_9': 'water bottle',
-            'object_10': 'light bulb',
-            'object_11': 'wine glass',
-            'object_12': 'copper bowl',
-            'object_13': 'silver headphone',
-            'object_14': 'hammer',
-            'object_15': 'digital camera',
-            'object_16': 'blue stapler',
-            'object_17': 'white egg',
-            'object_18': 'toy train',
-            'object_19': 'teapot',
-            'object_20': 'eyeglasses',
-        }
-        
+                
         self.ofd = {
             0: [2, 1, 0, 11, 12],
             1: [15, 18, 10, 13, 9],
@@ -349,7 +365,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.target_site_name = self.TS[number] 
         
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
- 
+
         if self.env_mode == "inference_1" or self.env_mode == "inference_3":
             if self.env_mode == "inference_3":
                 other_indices = random.sample([i for i in range(20) if i != number], 2)
@@ -543,12 +559,12 @@ class EnvV0(env_base_0.MujocoEnv):
             camera: String specifying the name of the camera to use.
         """ 
         # Initialize the simulator
-        rgb = copy.deepcopy(
+        bgr = copy.deepcopy(
             self.sim.renderer.render_offscreen(width=self.IMAGE_WIDTH, 
                                                height=self.IMAGE_HEIGHT, 
                                                camera_id=camera, depth = False)) 
 
-        rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB) 
+        rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB) 
         
         if self.classifier == "gdino" and self.inference_type == "sync":
             xyxy, self.gdino_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
@@ -603,6 +619,44 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
+        elif self.classifier == "detic":
+            xyxy, self.gdino_time = detic_inference(bgr, self.classifier_model, self.target_name)
+            # print(f'inference_time: {inference_time}')
+            self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+            self.gdino_center = (-2000, -2000)
+            
+            if xyxy is not None and xyxy.size != 0:
+                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+        
+            gt_center = int(self.target_x), int(self.target_y)
+                    
+            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.gdino_num_accurate += 1
+                        
+            self.gs += 1
+            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+
+        elif self.classifier == "owlv2":
+            xyxy, self.gdino_time = owlv2_inference(rgb, self.classifier_model, self.target_name)
+            # print(f'inference_time: {inference_time}')
+            self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+            self.gdino_center = (-2000, -2000)
+            
+            if xyxy is not None and xyxy.size != 0:
+                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+        
+            gt_center = int(self.target_x), int(self.target_y)
+                    
+            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.gdino_num_accurate += 1
+                        
+            self.gs += 1
+            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+            
+
+
         x1, x2 = 0, self.IMAGE_WIDTH
         y1, y2 = 0, self.IMAGE_HEIGHT
         
@@ -612,7 +666,7 @@ class EnvV0(env_base_0.MujocoEnv):
         self.mask_size = (white_pixels / total_pixels)  
 
         self.current_image = np.dstack((rgb, self.current_mask))
-         
+        
         return np.array(np.fliplr(np.flipud(rgb)))
 
     def check_target_in_boundary(self):
@@ -813,6 +867,7 @@ class EnvV0(env_base_0.MujocoEnv):
     #     return False
     
     def check_in_region(self, camera_matrix, xyxy):
+        return False # w/o curtain
         x1, y1, x2, y2 = map(int, xyxy[:4])
         x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
         mask = (x_all >= x1) & (x_all < x2) & (y_all >= y1) & (y_all < y2)
