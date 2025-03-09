@@ -396,6 +396,7 @@ class EnvV0(env_base_0.MujocoEnv):
             print('Other objects: ', item_names)
             
             site_names.append(self.target_site_name)
+            random.shuffle(site_names)
 
             for obj_name in self.TS:
                 if obj_name not in site_names:
@@ -816,7 +817,6 @@ class EnvV0(env_base_0.MujocoEnv):
         x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
         mask = (x_all >= x1) & (x_all < x2) & (y_all >= y1) & (y_all < y2)
         if mask.any():
-            # print('---------------------------------->>>>')
             return True
         return False
     
