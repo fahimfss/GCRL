@@ -28,7 +28,7 @@ class RLC_Env(gym.Wrapper):
                  reward_mode="distance",
                  goal_type="none",
                  classifier="none",
-                 inference_type="none",
+                 digital_curtain=False,
                  render_interactive=False,
                  step_time=0,
                  ofd_index=0):
@@ -38,7 +38,7 @@ class RLC_Env(gym.Wrapper):
                                       env_mode=env_mode, 
                                       target_obj_num=target_obj_num))
         else:
-            if inference_type is not "none":
+            if classifier is not "none":
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                             env_mode=env_mode, 
                                             mask_delay_type=mask_delay_type, 
@@ -47,7 +47,7 @@ class RLC_Env(gym.Wrapper):
                                             reward_mode=reward_mode,
                                             step_time=step_time,
                                             classifier=classifier,
-                                            inference_type=inference_type))
+                                            digital_curtain=digital_curtain))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
                                             env_mode=env_mode, 

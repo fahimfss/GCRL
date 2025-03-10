@@ -58,6 +58,7 @@ def parse_args():
     parser.add_argument('--reward_mode', default="mask_size", type=str) 
     parser.add_argument('--step_time', default=0.0, type=float)
     parser.add_argument('--episode_steps', default=150, type=int) 
+    parser.add_argument('--digital_curtain', default=False, action='store_true')
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
@@ -187,7 +188,8 @@ def main(seed=-1, env_name=None):
                    inference_type=args.inference_type,
                    step_time=step_time,
                    reward_mode='mask_size',
-                   ofd_index=args.seed)
+                   ofd_index=args.seed,
+                   digital_curtain=args.digital_curtain)
     env = WrappedEnv(env, args.episode_steps)
 
     set_seed_everywhere(seed=args.seed)
@@ -318,7 +320,8 @@ def eval(args):
                    step_time=step_time,
                    reward_mode='mask_size',
                    ofd_index=args.seed,
-                   env_mode="eval_ofd")
+                   env_mode="eval_ofd",
+                   digital_curtain=args.digital_curtain)
     
     env = WrappedEnv(env, args.episode_steps)
 

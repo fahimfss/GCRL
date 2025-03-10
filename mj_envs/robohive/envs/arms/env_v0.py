@@ -66,11 +66,11 @@ class EnvV0(env_base_0.MujocoEnv):
         self.current_image = np.ones((image_height, image_width, 4), dtype=np.uint8) 
         self.current_mask = None
         self.target_x, self.target_y = 0, 0
-        self.gdino_time = 0
-        self.gdino_step = 0
-        self.gdino_error = 0
-        self.gdino_num_accurate = 0
-        self.gdino_accuracy = 0
+        self.cf_time = 0
+        self.cf_step = 0
+        self.cf_error = 0
+        self.cf_num_accurate = 0
+        self.cf_accuracy = 0
         self.gs = 0
         self.distance = 1.0
         self._target_in_boundary = False
@@ -163,7 +163,7 @@ class EnvV0(env_base_0.MujocoEnv):
         } 
         
         self.ofd_index = ofd_index
-        print('ofd_index:', ofd_index)
+        print('ofd_index:', ofd_index, 'digital_curtain:', digital_curtain)
 
         self.TS = list(self.objects.keys())
         self.TN = list(self.objects.values())
@@ -239,13 +239,6 @@ class EnvV0(env_base_0.MujocoEnv):
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
-        mask_size = int(self.mask_size * 100)
-        # if self.reward_mode == 'mask_size': 
-        #     if mask_size >= MASK_SIZE_LIMIT:
-        #         self.mask_size_counter += 1
-        #     done_1 = np.array([self.mask_size_counter]) == 5
-        #     done_2 = self.mask_size_counter == 5
-        # else:
         if self.distance < DISTANCE_THRESHOLD and self._target_in_boundary:
             done_1 = np.full((1,), True, dtype=np.bool_)
             done_2 = True
@@ -291,28 +284,26 @@ class EnvV0(env_base_0.MujocoEnv):
                 reset_qpos[object_qpos_adr + 1] = y_pos
     
     def reset(self, reset_qpos=None, **kwargs): 
-        # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
-
         print('min dist: ', self._min_dist)
         self._min_dist = 10000
         
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
-        self.gdino_error = 0
-        self.gdino_num_accurate = 0
-        self.gdino_accuracy = 0
+        self.cf_error = 0
+        self.cf_num_accurate = 0
+        self.cf_accuracy = 0
         self.distance = 1.0
         self._target_in_boundary = False
         self.gs = 0
         self.mask_size = 0
         self.mask_size_counter = 0
         
-        if self.classifier == "gdino" and self.inference_type == "async":
-            while(self.images_sent > self.masks_recieved):
-                self.mask_queue.get()
-                self.masks_recieved += 1
-            self.images_sent = 0
-            self.masks_recieved = 0
+        # if self.classifier == "gdino" and self.inference_type == "async":
+        #     while(self.images_sent > self.masks_recieved):
+        #         self.mask_queue.get()
+        #         self.masks_recieved += 1
+        #     self.images_sent = 0
+        #     self.masks_recieved = 0
         
         ofd_items = self.ofd[self.ofd_index]
         train_items = list(set(range(20)) - set(ofd_items))
@@ -538,48 +529,48 @@ class EnvV0(env_base_0.MujocoEnv):
         rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB) 
         
         if self.classifier == "gdino" and self.inference_type == "sync":
-            xyxy, self.gdino_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
+            xyxy, self.cf_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
             # print(f'inference_time: {inference_time}')
             self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.gdino_center = (-2000, -2000)
+            self.cf_center = (-2000, -2000)
             
             if xyxy is not None and xyxy.size != 0:
                 if self.digital_curtain:
                     if not self.check_in_region(self.compute_camera_matrix(), xyxy):
-                        self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                        self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
                 else:
-                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                    self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
         
             gt_center = int(self.target_x), int(self.target_y)
                     
-            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
+            if self.is_classifier_prediction_accurate(gt_center, self.cf_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.cf_num_accurate += 1
                         
             self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+            self.cf_accuracy = float(self.cf_num_accurate) / self.gs
             
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
             
         elif self.classifier == "detic":
-            xyxy, self.gdino_time = detic_inference(bgr, self.classifier_model, self.target_name)
+            xyxy, self.cf_time = detic_inference(bgr, self.classifier_model, self.target_name)
             # print(f'inference_time: {inference_time}')
             self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.gdino_center = (-2000, -2000)
+            self.cf_center = (-2000, -2000)
             
             if xyxy is not None and xyxy.size != 0:
                 if self.digital_curtain:
                     if not self.check_in_region(self.compute_camera_matrix(), xyxy):
-                        self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                        self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
                 else:
-                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                    self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
         
             gt_center = int(self.target_x), int(self.target_y)
                     
-            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
+            if self.is_classifier_prediction_accurate(gt_center, self.cf_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                self.cf_num_accurate += 1
                         
             self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+            self.cf_accuracy = float(self.cf_num_accurate) / self.gs
 
         # elif self.classifier == "owlv2":
         #     xyxy, self.gdino_time = owlv2_inference(rgb, self.classifier_model, self.target_name)
@@ -710,10 +701,10 @@ class EnvV0(env_base_0.MujocoEnv):
             acceptable_dist = acceptable_dist[0]
         distance = math.sqrt((gt_pos[0] - classifier_pos[0])**2 + (gt_pos[1] - classifier_pos[1])**2)
         
-        if classifier_pos[0] == -2000 and classifier_pos[1] == -2000:
+        if classifier_pos[0] < -1900 and classifier_pos[1] < -1900:
             w_tol = image_width * 0.025
             h_tol = image_height * 0.025
-            if gt_pos[0] < w_tol and gt_pos[0] > image_width - w_tol and gt_pos[1] < h_tol and gt_pos[1] > image_height - h_tol:
+            if gt_pos[0] < w_tol or gt_pos[0] > image_width - w_tol or gt_pos[1] < h_tol or gt_pos[1] > image_height - h_tol:
                 return True
             return False
 
@@ -779,9 +770,7 @@ class EnvV0(env_base_0.MujocoEnv):
         return False
     
     def close(self):
-        if self.inference_type == 'async':
-            self.image_queue.put("close")
-            self.mask_process.join()
+        pass
         
     
     

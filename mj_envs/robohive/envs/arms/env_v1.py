@@ -250,13 +250,6 @@ class EnvV1(env_base_0.MujocoEnv):
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
-        mask_size = int(self.mask_size * 100)
-        # if self.reward_mode == 'mask_size': 
-        #     if mask_size >= MASK_SIZE_LIMIT:
-        #         self.mask_size_counter += 1
-        #     done_1 = np.array([self.mask_size_counter]) == 5
-        #     done_2 = self.mask_size_counter == 5
-        # else:
         if self.distance < DISTANCE_THRESHOLD and self._target_in_boundary:
             done_1 = np.full((1,), True, dtype=np.bool_)
             done_2 = True
@@ -264,7 +257,6 @@ class EnvV1(env_base_0.MujocoEnv):
             done_1 = np.full((1,), False, dtype=np.bool_)
             done_2 = False
                 
-             
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
@@ -302,7 +294,6 @@ class EnvV1(env_base_0.MujocoEnv):
                 reset_qpos[object_qpos_adr + 1] = y_pos
     
     def reset(self, reset_qpos=None, **kwargs): 
-        # print("-->", self.gdino_num_accurate, self.gs, self.gdino_accuracy)
         print('min dist: ', self._min_dist)
         self._min_dist = 10000
         

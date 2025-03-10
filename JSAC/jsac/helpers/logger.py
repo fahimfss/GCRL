@@ -69,8 +69,8 @@ class MetersGroup(object):
                              'step', 
                              'eval_step',
                              'elapsed_time',
-                             'gdino_step',
-                             'gdino_accuracy',
+                             'cf_step',
+                             'cf_accuracy',
                              'target_object']
         self._int_value_items = ['num_updates', 
                                  'battery_charge', 
@@ -78,7 +78,7 @@ class MetersGroup(object):
                                  'episode_steps', 
                                  'eval_step',
                                  'step',
-                                 'gdino_step',
+                                 'cf_step',
                                  'target_object']
 
     def log(self, key, value, n=1):

@@ -483,9 +483,9 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
                 'y': self.target_y,
                 'prompt': self.target_name,
                 'reach_err': self.obs_dict['reach_err'],
-                'gdino_step':self.gs,
-                'gdino_time':self.gdino_time,
-                'gdino_accuracy':self.gdino_accuracy,
+                'cf_step':self.gs,
+                'cf_time':self.cf_time,
+                'cf_accuracy':self.cf_accuracy,
                 'target_object':self.epi_target_object_num,
             }
         else:
