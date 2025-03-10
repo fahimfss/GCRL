@@ -17,7 +17,7 @@ from robohive.envs.arms.gdino import create_mask, g_dino_inference, async_g_dino
     
 from groundingdino.util.inference import load_model
 from robohive.envs.arms.detic import Detic, detic_inference
-from robohive.envs.arms.owlv2 import OwlV2, owlv2_inference
+# from robohive.envs.arms.owlv2 import OwlV2, owlv2_inference
 
 # MASK_SIZE_LIMIT = 30
 # MASK_SIZE_LIMIT_DIST = 30
@@ -47,9 +47,8 @@ class EnvV0(env_base_0.MujocoEnv):
                image_height=540,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
-               reward_mode = "mask_size",   # "distance", "mask_size"
-               classifier = "gdino",        # "gdino"
-               inference_type = "sync",     # "sync", "async"
+               classifier = "gdino",        # "gdino", "detic"
+               digital_curtain=False,
                obs_keys=DEFAULT_OBS_KEYS,
                proprio_keys=DEFAULT_PROPRIO_KEYS,
                ofd_index=0,
@@ -85,12 +84,11 @@ class EnvV0(env_base_0.MujocoEnv):
         self.create_all_points()
         
         self.env_mode = env_mode
-        self.reward_mode = reward_mode
+        self.reward_mode = "mask_size"
+        self.digital_curtain = digital_curtain
+        self.inference_type = "sync"
         
-        print('Reward mode: ', reward_mode)
-        
-        self.classifier = classifier
-        self.inference_type = inference_type 
+        self.classifier = classifier 
         
         self.objects = {
             'object_1': 'red apple',
@@ -116,53 +114,26 @@ class EnvV0(env_base_0.MujocoEnv):
         }
         # ['red apple', 'green block', 'chocolate donut', 'round bottomed flask', 'yellow toy duck', 'banana', 'purple alarm clock', 'pink cup', 'water bottle', 'light bulb', 'wine glass', 'copper bowl', 'silver headphone', 'hammer', 'digital camera', 'blue stapler', 'white egg', 'toy train', 'teapot', 'eyeglasses']
 
-        
-        if reward_mode == "distance":
-            weighted_reward_keys = {
-                "distance": -1.0, 
-                "contact": 0.,
-                'penalty': 0,
-                'mask_size': 0.,
-                "done": 5.,
-            }
-        else:
-            weighted_reward_keys = {
-                "distance": 0., 
-                "contact": 0.,
-                'penalty': 1.,
-                'mask_size': 1,
-                "done": 5.,
-            }
+        weighted_reward_keys = {
+            "distance": 0., 
+            "contact": 0.,
+            'penalty': 1.,
+            'mask_size': 1,
+            "done": 5.,
+        }
             
         if self.classifier == "gdino" and self.inference_type=="sync":
             self.classifier_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
                                                "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
-        elif self.classifier == "gdino" and self.inference_type=="async":
-            self.image_queue = mp.Queue()
-            self.mask_queue = mp.Queue()
-            
-            img_shape = (self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3)
-            original_array = np.zeros(img_shape, dtype=np.uint8)
-            self.img_shm = mp.shared_memory.SharedMemory(create=True, size=original_array.nbytes)
-            self.img_arr = np.ndarray(img_shape, dtype=np.uint8, buffer=self.img_shm .buf)
-            
-            self.mask_process = mp.Process(target=async_g_dino_inference, 
-                                           args=(img_shape, self.img_shm.name, 
-                                            self.image_queue, self.mask_queue))
-            self.mask_process.start()
-            self.images_sent = 0
-            self.masks_recieved = 0
         elif self.classifier == "detic":
-            assert self.inference_type == "sync"
             # It is not implemented for async for now
             vocabs = [v for v in self.objects.values()]
             self.classifier_model = Detic(vocabs)
             
-        elif self.classifier == "owlv2":
-            assert self.inference_type == "sync"
-            # It is not implemented for async for now
-            vocabs = [v for v in self.objects.values()]
-            self.classifier_model = OwlV2(vocabs)
+        # elif self.classifier == "owlv2":
+        #     # It is not implemented for async for now
+        #     vocabs = [v for v in self.objects.values()]
+        #     self.classifier_model = OwlV2(vocabs)
         
         self.target_name = "red apple"
         self._min_dist = 10000
@@ -573,7 +544,10 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gdino_center = (-2000, -2000)
             
             if xyxy is not None and xyxy.size != 0:
-                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                if self.digital_curtain:
+                    if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                        self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                else:
                     self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
         
             gt_center = int(self.target_x), int(self.target_y)
@@ -585,39 +559,6 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
             # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
-
-        elif self.classifier == "gdino" and self.inference_type == "async":
-            if self.current_mask is None:
-                np.copyto(self.img_arr, rgb)
-                self.image_queue.put(self.target_name)
-                self.images_sent += 1
-                
-                boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
-                mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-                
-                self.masks_recieved += 1
-            else:
-                if self.images_sent == 1:
-                    np.copyto(self.img_arr, rgb)
-                    self.image_queue.put(self.target_name)
-                    self.images_sent += 1
-                if not self.mask_queue.empty():
-                    boxes, self.gdino_time, self.gdino_step = self.mask_queue.get() 
-                    mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)  
-                    self.current_mask, self.gdino_center = create_mask(mask, boxes=boxes)
-                    
-                    self.masks_recieved += 1
-                    
-                    np.copyto(self.img_arr, rgb)
-                    self.image_queue.put(self.target_name)
-                    self.images_sent += 1
-                    
-            gt_center = int(self.target_x), int(self.target_y)
-            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
-            self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
         elif self.classifier == "detic":
             xyxy, self.gdino_time = detic_inference(bgr, self.classifier_model, self.target_name)
@@ -626,7 +567,10 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gdino_center = (-2000, -2000)
             
             if xyxy is not None and xyxy.size != 0:
-                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                if self.digital_curtain:
+                    if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                        self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                else:
                     self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
         
             gt_center = int(self.target_x), int(self.target_y)
@@ -637,23 +581,23 @@ class EnvV0(env_base_0.MujocoEnv):
             self.gs += 1
             self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
 
-        elif self.classifier == "owlv2":
-            xyxy, self.gdino_time = owlv2_inference(rgb, self.classifier_model, self.target_name)
-            # print(f'inference_time: {inference_time}')
-            self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
-            self.gdino_center = (-2000, -2000)
+        # elif self.classifier == "owlv2":
+        #     xyxy, self.gdino_time = owlv2_inference(rgb, self.classifier_model, self.target_name)
+        #     # print(f'inference_time: {inference_time}')
+        #     self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+        #     self.gdino_center = (-2000, -2000)
             
-            if xyxy is not None and xyxy.size != 0:
-                if not self.check_in_region(self.compute_camera_matrix(), xyxy):
-                    self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+        #     if xyxy is not None and xyxy.size != 0:
+        #         if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+        #             self.current_mask, self.gdino_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
         
-            gt_center = int(self.target_x), int(self.target_y)
+        #     gt_center = int(self.target_x), int(self.target_y)
                     
-            if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
-                self.gdino_num_accurate += 1
+        #     if self.is_classifier_prediction_accurate(gt_center, self.gdino_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+        #         self.gdino_num_accurate += 1
                         
-            self.gs += 1
-            self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
+        #     self.gs += 1
+        #     self.gdino_accuracy = float(self.gdino_num_accurate) / self.gs
             
 
 
@@ -803,7 +747,6 @@ class EnvV0(env_base_0.MujocoEnv):
         z = np.tile(z_values, N).astype(np.float64)
         return np.column_stack((x, y, z))
 
-
     def create_all_points(self):
         x_intervals = self.x_intervals
         y_intervals = self.y_intervals
@@ -815,22 +758,6 @@ class EnvV0(env_base_0.MujocoEnv):
             pts.append(franka_site_pos)
         self.excluded_points = np.vstack(pts).astype(np.float64)
         print('excluded_points shape: ', self.excluded_points.shape)
-
-        
-    # def world_2_pixel_vec(self, world_coordinates, camera_matrix):
-    #     ones = np.ones((world_coordinates.shape[0], 1))
-    #     homo_coords = np.hstack((world_coordinates, ones))
-    #     proj = homo_coords @ camera_matrix.T
-    #     xs, ys, s = proj[:, 0], proj[:, 1], proj[:, 2]
-        
-    #     s_abs = np.where(s != 0, np.abs(s), 1e-12)
-    #     x_pixels = xs / s_abs
-    #     y_pixels = ys / s_abs
-    
-    #     # with np.errstate(divide='ignore', invalid='ignore'):
-    #     #     x_pixels = np.where(s != 0, xs / s, -2000)
-    #     #     y_pixels = np.where(s != 0, ys / s, -2000)
-    #     return np.round(x_pixels).astype(int), np.round(y_pixels).astype(int)
     
     def world_2_pixel_vec(self, world_coordinates, camera_matrix):
         world_coordinates = np.atleast_2d(np.asarray(world_coordinates, dtype=np.float64))
@@ -842,32 +769,8 @@ class EnvV0(env_base_0.MujocoEnv):
         x_pixels = np.where(s < 0, xs / s, -2000)
         y_pixels = np.where(s < 0, ys / s, -2000)
         return np.round(x_pixels).astype(int), np.round(y_pixels).astype(int)
-
-
-
-    # def check_in_region(self, camera_matrix, xyxy):
-    #     x1, y1, x2, y2 = int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3])
-        
-    #     x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
-    #     for i in range(x_all.shape[0]):
-    #         x, y = x_all[i], y_all[i]
-    #         if ((x >= x1) and (x < x2) and (y >= y1) and (y < y2)):
-    #             site_pos = self.sim.data.site_xpos[self.target_sid].copy()
-    #             camera_matrix = self.compute_camera_matrix()
-    #             cx, cy = self.world_2_pixel(site_pos.copy(), camera_matrix) 
-    #             p2 = self.excluded_points[i]
-    #             ax, ay = self.world_2_pixel(p2.copy(), camera_matrix) 
-                
-    #             print('camera matrix: ', camera_matrix)
-    #             print(f'cx: {cx}, cy: {cy}', 'site pos: ', site_pos)
-    #             print(f'ax: {ax}, ay: {ay}, p2: {p2}')
-    #             print(f"_x: {x}, _y: {y}, excluded: {p2}")
-    #             print(f"{i}, X1: {x1}, Y1: {y1}, X2: {x2}, Y2: {y2}")
-    #             return True
-    #     return False
     
     def check_in_region(self, camera_matrix, xyxy):
-        return False # w/o curtain
         x1, y1, x2, y2 = map(int, xyxy[:4])
         x_all, y_all = self.world_2_pixel_vec(self.excluded_points.copy(), camera_matrix)
         mask = (x_all >= x1) & (x_all < x2) & (y_all >= y1) & (y_all < y2)
