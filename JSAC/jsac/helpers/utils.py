@@ -170,10 +170,10 @@ class WrappedEnv(Env):
             new_info['reach_err'] = np.array(info['reach_err'])  
             new_info['reach_err'] = np.linalg.norm(new_info['reach_err'])
         
-        if 'gdino_step' in info:
-            new_info['gdino_step'] = info['gdino_step']
-            new_info['gdino_time'] =  info['gdino_time']
-            new_info['gdino_accuracy'] =  info['gdino_accuracy']
+        if 'cf_step' in info:
+            new_info['cf_step'] = info['cf_step']
+            new_info['cf_time'] =  info['cf_time']
+            new_info['cf_accuracy'] =  info['cf_accuracy']
             new_info['target_object'] =  info['target_object']
             
             

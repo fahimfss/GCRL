@@ -44,7 +44,6 @@ class RLC_Env(gym.Wrapper):
                                             mask_delay_type=mask_delay_type, 
                                             mask_delay_steps=mask_delay_steps, 
                                             ofd_index=ofd_index,
-                                            reward_mode=reward_mode,
                                             step_time=step_time,
                                             classifier=classifier,
                                             digital_curtain=digital_curtain))

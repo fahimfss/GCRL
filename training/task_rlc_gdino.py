@@ -54,8 +54,6 @@ def parse_args():
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
     parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
-    parser.add_argument('--inference_type', default='sync', type=str)
-    parser.add_argument('--reward_mode', default="mask_size", type=str) 
     parser.add_argument('--step_time', default=0.0, type=float)
     parser.add_argument('--episode_steps', default=150, type=int) 
     parser.add_argument('--digital_curtain', default=True, action='store_true')
@@ -94,8 +92,8 @@ def parse_args():
     parser.add_argument('--num_cameras', default=1, type=int)
     parser.add_argument('--update_every', default=1, type=int)
     parser.add_argument('--log_every', default=1, type=int)
-    parser.add_argument('--eval_steps', default=10_000, type=int)
-    parser.add_argument('--num_eval_episodes', default=10, type=int)
+    parser.add_argument('--eval_steps', default=-1, type=int)
+    parser.add_argument('--num_eval_episodes', default=0, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
     parser.add_argument('--save_tensorboard', default=False, 
                         action='store_true')
@@ -129,7 +127,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.classifier}_{args.inference_type}'
+    args.name = f'{args.env_name}_{args.classifier}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -185,9 +183,7 @@ def main(seed=-1, env_name=None):
                    args.image_width, 
                    args.image_height,
                    classifier=args.classifier,
-                   inference_type=args.inference_type,
                    step_time=step_time,
-                   reward_mode='mask_size',
                    ofd_index=args.seed,
                    digital_curtain=args.digital_curtain)
     env = WrappedEnv(env, args.episode_steps)
@@ -209,21 +205,7 @@ def main(seed=-1, env_name=None):
     else:
         sync_queue = mp.Queue()
         agent = AsyncSACRADAgent(vars(args), sync_queue)
-        
-    if args.eval_steps > 0:
-        eval_args = vars(args)
-        eval_args['env_type'] = 'RLC_ic'
-        eval_args['ofd_index'] = args.seed
-        eval_args['sync'] = 'true'
-        eval_queue_1 = mp.Queue()
-        path1 = os.path.join(args.work_dir, 'eval_log')
-        make_dir(path1)
-        eval_process_1 = start_eval_process(eval_args, 
-                                            path1, 
-                                            eval_queue_1, 
-                                            args.num_eval_episodes,
-                                            False)
-
+ 
     update_paused = True
     time.sleep(5)
     state = env.reset(create_vid=False)
@@ -277,36 +259,25 @@ def main(seed=-1, env_name=None):
         if args.save_model and env.total_steps % args.save_model_freq == 0 and \
             env.total_steps < args.env_steps:
             agent.checkpoint(env.total_steps)
-            
-        if args.eval_steps > 0 and env.total_steps % args.eval_steps == 0:
-            agent.pause_update()
-            eval_queue_1.put(agent.get_actor_params())
-            eval_queue_1.put(env.total_steps)
-            time.sleep(5)
-            eval_queue_1.get()
-            if env.total_steps < args.env_steps:
-                agent.resume_update()
 
     if not args.sync_mode:
         agent.pause_update()
     if args.save_model:
         agent.checkpoint(env.total_steps)
         
-    if args.eval_steps > 0:    
-        eval_queue_1.put('close')
-        eval_process_1.join()
-        
     L.plot()
     L.close()
     env.close()
+    
+    actor_params = agent.get_actor_params()
     agent.close()
 
     end_time = time.time()
     print(f'\nFinished in {end_time - task_start_time}s')
-    return args
+    return args, actor_params
 
 
-def eval(args):
+def eval(args, params):
     step_time = None
     if args.step_time > 0:
         step_time = args.step_time
@@ -316,9 +287,7 @@ def eval(args):
                    args.image_width, 
                    args.image_height,
                    classifier=args.classifier,
-                   inference_type=args.inference_type,
                    step_time=step_time,
-                   reward_mode='mask_size',
                    ofd_index=args.seed,
                    env_mode="eval_ofd",
                    digital_curtain=args.digital_curtain)
@@ -341,13 +310,8 @@ def eval(args):
                                       jnp.float32)
     
     rng, key1, key2 = random.split(rng, 3)
-    params= actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
+    actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
 
-    best_actor_path = f'{args.work_dir}/eval_log/best_actor_params.pkl'
-    
-    with open(best_actor_path, 'rb') as f: 
-        params = flax.serialization.from_bytes(params, f.read())
- 
     num_episods_per_object = 25
     for object_id in range(20): 
         stats={'object_id': object_id}
@@ -378,5 +342,5 @@ def eval(args):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    args = main() 
-    eval(args)
+    args, params = main() 
+    eval(args, params)

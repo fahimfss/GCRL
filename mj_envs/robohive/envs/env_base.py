@@ -14,7 +14,7 @@ from robohive.envs.obs_vec_dict import ObsVecDict
 from robohive.utils import tensor_utils
 from robohive.robot.robot1 import Robot
 from robohive.utils.prompt_utils import prompt, Prompt
-import skvideo.io
+# import skvideo.io
 from sys import platform
 from robohive.physics.sim_scene import SimScene
 import robohive.utils.import_utils as import_utils
