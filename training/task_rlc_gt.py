@@ -105,7 +105,7 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_model_freq', default=500_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
@@ -165,8 +165,8 @@ def main(seed=-1, env_name=None):
     if args.save_model:
         make_dir(args.model_dir)
         
-    args.video_dir = os.path.join(args.work_dir, 'videos') 
-    make_dir(args.video_dir)
+    # args.video_dir = os.path.join(args.work_dir, 'videos') 
+    # make_dir(args.video_dir)
         
     args.net_params = config
 
@@ -351,4 +351,8 @@ def eval(args, params):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     args, params = main() 
-    eval(args, params)
+    
+    dir = args.work_dir
+    params_path = os.path.join(dir, 'params.pkl') 
+    with open(params_path, 'wb') as f: 
+        f.write(flax.serialization.to_bytes(params)) 

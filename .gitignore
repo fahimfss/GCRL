@@ -148,3 +148,4 @@ buffers/
 *.mp4
 training/job_* 
 
+*.sh
