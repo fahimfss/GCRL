@@ -59,7 +59,7 @@ def init_critic(rng,
     # tx = optax.adam(learning_rate=learning_rate, mu_dtype=dtype)
     tx=optax.chain(optax.zero_nans(), 
                    optax.clip_by_global_norm(global_norm), 
-                   optax.adam(learning_rate, mu_dtype=dtype))
+                   optax.adam(learning_rate))
 
     return rng, TrainState.create(apply_fn=model.apply, 
                                   params=params, 
@@ -129,7 +129,7 @@ def init_actor(rng,
     
     tx=optax.chain(optax.zero_nans(), 
                    optax.clip_by_global_norm(global_norm), 
-                   optax.adam(learning_rate, mu_dtype=dtype))
+                   optax.adam(learning_rate))
     
     return rng, TrainState.create(apply_fn=model.apply, 
                                   params=params, 

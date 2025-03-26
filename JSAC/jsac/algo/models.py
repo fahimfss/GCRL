@@ -64,6 +64,7 @@ class Encoder(nn.Module):
                         param_dtype=self.dtype,
                         name=layer_name)(x) 
             if i < len(conv_params) - 1:
+                x = nn.LayerNorm(dtype=self.dtype, param_dtype=self.dtype)(x)
                 x = nn.leaky_relu(x)
                 
         b, height, width, channel = x.shape
@@ -87,6 +88,7 @@ class MLP(nn.Module):
         for i, size in enumerate(self.hidden_dims):
             x = nn.Dense(size, kernel_init=default_init(dtype=self.dtype))(x)
             if i + 1 < len(self.hidden_dims) or self.activate_final:
+                x = nn.LayerNorm(dtype=self.dtype, param_dtype=self.dtype)(x)
                 x = nn.relu(x)
         return x
 
@@ -117,7 +119,7 @@ class ActorModel(nn.Module):
             x = jax.lax.stop_gradient(x)
             x = nn.Dense(self.net_params['latent_dim'], 
                          kernel_init=default_init(dtype=self.dtype))(x)
-            x = nn.LayerNorm()(x)
+            x = nn.LayerNorm(dtype=self.dtype, param_dtype=self.dtype)(x)
             x = nn.tanh(x)
             if self.mode == MODE.IMG_PROP:
                 proprioceptions = jnp.clip(proprioceptions, -10, 10)
@@ -176,7 +178,7 @@ class CriticModel(nn.Module):
                             name='encoder')(images)
             x = nn.Dense(self.net_params['latent_dim'], 
                          kernel_init=default_init(dtype=self.dtype))(x)
-            x = nn.LayerNorm()(x)
+            x = nn.LayerNorm(dtype=self.dtype, param_dtype=self.dtype)(x)
             x = nn.tanh(x)
             if self.mode == MODE.IMG_PROP:
                 proprioceptions = jnp.clip(proprioceptions, -10, 10)
