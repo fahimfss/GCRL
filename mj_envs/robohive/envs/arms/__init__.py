@@ -15,6 +15,14 @@ print("RoboHive:> Registering Arms Envs")
 # FRANKA REACH =======================================================================
 from robohive.envs.arms.reach_base_v0 import ReachBaseV0
 
+register(
+    id='UR10eEnv-v0',
+    entry_point='robohive.envs.arms.env_v0:EnvV0',
+    kwargs={
+        'model_path': curr_dir+'/ur10e/scene_eight.xml', 
+        'robot_site_name': "pinch"    
+    }
+)
 
 register(
     id='UR10eEnv-v1',

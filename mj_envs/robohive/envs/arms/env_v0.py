@@ -81,7 +81,8 @@ class EnvV0(env_base_0.MujocoEnv):
         self.x_intervals = [(-0.7, 0.7),  (0.7, 0.7),   (-0.7, 0.7),  (-0.7, -0.7), (-0.7, 0.7)]
         self.y_intervals = [(0.87, 0.87), (-0.8, 0.87), (-0.8, -0.8), (-0.8, 0.87), (-0.8, 0.01)]
         self.z_intervals = [(0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 2.5),  (0.83, 0.83)]
-        self.create_all_points()
+        if digital_curtain:
+            self.create_all_points()
         
         self.env_mode = env_mode
         self.reward_mode = "mask_size"

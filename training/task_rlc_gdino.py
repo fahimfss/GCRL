@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
     parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
@@ -56,7 +56,7 @@ def parse_args():
     parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--step_time', default=0.0, type=float)
     parser.add_argument('--episode_steps', default=150, type=int) 
-    parser.add_argument('--digital_curtain', default=True, action='store_true')
+    parser.add_argument('--digital_curtain', default=False, action='store_true')
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)

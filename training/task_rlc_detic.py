@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v0', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
     parser.add_argument('--task_name', default='detic_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
