@@ -17,8 +17,8 @@ from robohive.envs.arms.reach_base_v0 import ReachBaseV0
 
 
 register(
-    id='UR10eEnv-v0',
-    entry_point='robohive.envs.arms.env_v0:EnvV0',
+    id='UR10eEnv-v1',
+    entry_point='robohive.envs.arms.env_v1:EnvV1',
     # max_episode_steps=200, 
     kwargs={
         'model_path': curr_dir+'/ur10e/scene_eight.xml', 

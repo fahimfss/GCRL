@@ -30,15 +30,18 @@
   </asset>
 
   <worldbody>
-    <camera name='front_cam' pos="-0.024 2.950 1.520" xyaxes="-1.000 -0.013 -0.000 0.003 -0.223 0.975"/>
-    <camera name='right_cam' pos="-0.629 1.055 1.560" xyaxes="-0.716 -0.698 0.000 0.432 -0.443 0.786"/>
-    <camera name='top_cam' pos='0 0.5 2.2' euler='0 0 0' fovy = '58'/>
-    <camera name = 'ft_cam'  pos="1.926 1.945 2.658" xyaxes="-0.612 0.791 -0.000 -0.508 -0.393 0.766"/>
-    <light directional="false" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1" pos="1 1 3" dir="-1 -1 -3"/>
+    <!-- <camera name='front_cam' pos="-0.024 2.950 1.520"
+      xyaxes="-1.000 -0.013 -0.000 0.003 -0.223 0.975" />
+    <camera name='right_cam' pos="-0.629 1.055 1.560"
+      xyaxes="-0.716 -0.698 0.000 0.432 -0.443 0.786" />
+    <camera name='top_cam' pos='0 0.5 2.2' euler='0 0 0' fovy='58' />
+    <camera name='ft_cam' pos="1.926 1.945 2.658" xyaxes="-0.612 0.791 -0.000 -0.508 -0.393 0.766" /> -->
+    <light directional="false" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1" pos="1 1 3"
+      dir="-1 -1 -3" />
 
   
 
-    <body pos='-0.1 -.55 .823' euler='0 0 1.57'>
+    <body pos='0.24 -.55 .823' euler='0 0 1.57'>
         <include file="ur10e_vel_include.xml"/>
     </body>
 
@@ -58,144 +61,425 @@
 
     <body name="object_1" pos="-0.258 0.38 0.93" euler="0 0 0">
       <!--APPLE-->
-      <freejoint/>
-      <site name="object_1" size="0.00001" rgba='0 0 0 0'/>  
+      <freejoint />
+      <site name="object_1" size="0.00001" pos="0 0 -0.048" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-      <geom rgba="1 0.0 0 1" name="object_1" mesh="apple" class="visual_b"/>
-      <geom name="apple_contact0_1" mesh="a_contact0" class="collision_b"/>
-      <geom name="apple_contact1_1" mesh="a_contact1" class="collision_b"/>
+      <geom rgba="1 0.0 0 1" name="object_1" mesh="apple" class="visual_b" />
+      <geom name="apple_contact0_1" mesh="a_contact0" class="collision_b" />
+      <geom name="apple_contact1_1" mesh="a_contact1" class="collision_b" />
     </body>
 
     <body name="object_2" pos="-0.4 0.38 0.93" euler="1.57 0 0">
       <!--BLOCK-->
-      <freejoint/>
-      <site name="object_2" size="0.00001" rgba='0 0 0 0'/> 
+      <freejoint />
+      <site name="object_2" size="0.00001" pos="0 0 -0.022" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-      <geom name = 'object_2' type="box" size="0.025 0.025 0.025" group="1" rgba="0 1 0 1"/>
+      <geom name='object_2' type="box" size="0.025 0.025 0.025" group="1" rgba="0 1 0 1" />
     </body>
 
     <body name="object_4" pos="0.35 0.38 0.94" euler="0 0 0">
       <!--BEAKER-->
-      <freejoint/>
-      <site name="object_4" size="0.00001" rgba='0 0 0 0'/> 
+      <freejoint />
+      <site name="object_4" size="0.00001" pos="0 -0.105 0" rgba='0 0 0 0' />
 
-      <geom name = "object_4" rgba="0 0.9 0.3 .7" mesh="rbf_0" class="visual_b"/>
-      <geom rgba="1 1 1 .4" mesh="rbf_1" class="visual_b"/>
-      <geom mesh="rbf_collision_0" class="collision_b"/>
-      <geom mesh="rbf_collision_1" class="collision_b"/>
-      <geom mesh="rbf_collision_2" class="collision_b"/>
-      <geom mesh="rbf_collision_3" class="collision_b"/>
-      <geom mesh="rbf_collision_4" class="collision_b"/>
-      <geom mesh="rbf_collision_5" class="collision_b"/>
-      <geom mesh="rbf_collision_6" class="collision_b"/>
-      <geom mesh="rbf_collision_7" class="collision_b"/>
-      <geom mesh="rbf_collision_8" class="collision_b"/>
-      <geom mesh="rbf_collision_9" class="collision_b"/>
-      <geom mesh="rbf_collision_10" class="collision_b"/>
-      <geom mesh="rbf_collision_11" class="collision_b"/>
-      <geom mesh="rbf_collision_12" class="collision_b"/>
-      <geom mesh="rbf_collision_13" class="collision_b"/>
-      <geom mesh="rbf_collision_14" class="collision_b"/>
+      <geom name="object_4" rgba="0 0.9 0.3 .7" mesh="rbf_0" class="visual_b" />
+      <geom rgba="1 1 1 .4" mesh="rbf_1" class="visual_b" />
+      <geom mesh="rbf_collision_0" class="collision_b" />
+      <geom mesh="rbf_collision_1" class="collision_b" />
+      <geom mesh="rbf_collision_2" class="collision_b" />
+      <geom mesh="rbf_collision_3" class="collision_b" />
+      <geom mesh="rbf_collision_4" class="collision_b" />
+      <geom mesh="rbf_collision_5" class="collision_b" />
+      <geom mesh="rbf_collision_6" class="collision_b" />
+      <geom mesh="rbf_collision_7" class="collision_b" />
+      <geom mesh="rbf_collision_8" class="collision_b" />
+      <geom mesh="rbf_collision_9" class="collision_b" />
+      <geom mesh="rbf_collision_10" class="collision_b" />
+      <geom mesh="rbf_collision_11" class="collision_b" />
+      <geom mesh="rbf_collision_12" class="collision_b" />
+      <geom mesh="rbf_collision_13" class="collision_b" />
+      <geom mesh="rbf_collision_14" class="collision_b" />
     </body>
 
     <body name="base_rbf" pos="0.35 0.38 0.92" euler="0 0 0">
-      <freejoint/>
-      <geom rgba="0.4627 0.4627 0.4627 1" mesh="base_2" class="visual_b"/>
-      <geom mesh="base_2_collision_0" class="collision_b"/>
-      <geom mesh="base_2_collision_1" class="collision_b"/>
-      <geom mesh="base_2_collision_2" class="collision_b"/>
-      <geom mesh="base_2_collision_3" class="collision_b"/>
-      <geom mesh="base_2_collision_4" class="collision_b"/>
-      <geom mesh="base_2_collision_5" class="collision_b"/>
-      <geom mesh="base_2_collision_6" class="collision_b"/>
-      <geom mesh="base_2_collision_7" class="collision_b"/>
-      <geom mesh="base_2_collision_8" class="collision_b"/>
-      <geom mesh="base_2_collision_9" class="collision_b"/>
-      <geom mesh="base_2_collision_10" class="collision_b"/>
-      <geom mesh="base_2_collision_11" class="collision_b"/>
-      <geom mesh="base_2_collision_12" class="collision_b"/>
-      <geom mesh="base_2_collision_13" class="collision_b"/>
-      <geom mesh="base_2_collision_14" class="collision_b"/>
+      <freejoint />
+      <geom rgba="0.4627 0.4627 0.4627 1" mesh="base_2" class="visual_b" />
+      <geom mesh="base_2_collision_0" class="collision_b" />
+      <geom mesh="base_2_collision_1" class="collision_b" />
+      <geom mesh="base_2_collision_2" class="collision_b" />
+      <geom mesh="base_2_collision_3" class="collision_b" />
+      <geom mesh="base_2_collision_4" class="collision_b" />
+      <geom mesh="base_2_collision_5" class="collision_b" />
+      <geom mesh="base_2_collision_6" class="collision_b" />
+      <geom mesh="base_2_collision_7" class="collision_b" />
+      <geom mesh="base_2_collision_8" class="collision_b" />
+      <geom mesh="base_2_collision_9" class="collision_b" />
+      <geom mesh="base_2_collision_10" class="collision_b" />
+      <geom mesh="base_2_collision_11" class="collision_b" />
+      <geom mesh="base_2_collision_12" class="collision_b" />
+      <geom mesh="base_2_collision_13" class="collision_b" />
+      <geom mesh="base_2_collision_14" class="collision_b" />
     </body>
 
     <body name="object_6" pos="0.2 0.38 0.95" euler="0 0 0">
       <!--BANANA-->
-      <freejoint/>
-      <site name="object_6" size="0.00001" rgba='0 0 0 0'/> 
+      <freejoint />
+      <site name="object_6" size="0.00001" pos="0 0 -0.021" rgba='0 0 0 0' />
 
-        <geom name="object_6" mesh="banana" class="visual_b" rgba="1 1 0 1.0" />
-        <geom name="b_contact0" mesh="b_contact0" class="collision_b"/>
-        <geom name="b_contact1" mesh="b_contact1" class="collision_b"/>
-        <geom name="b_contact2" mesh="b_contact2" class="collision_b"/>
-        <geom name="b_contact3" mesh="b_contact3" class="collision_b"/>
-        <geom name="b_contact4" mesh="b_contact4" class="collision_b"/>
+      <geom name="banana_1" mesh="banana1" class="visual_b" rgba="1 1 0 1.0" />
+      <geom name="banana_2" mesh="banana2" class="visual_b" rgba="0.56 0.93 0.56 1.0" />
+      <geom name="banana_3" mesh="banana3" class="visual_b" rgba="0.5 0.5 0.12 1.0" />
+      <geom name="b_contact0" mesh="b_contact0" class="collision_b" />
+      <geom name="b_contact1" mesh="b_contact1" class="collision_b" />
+      <geom name="b_contact2" mesh="b_contact2" class="collision_b" />
+      <geom name="b_contact3" mesh="b_contact3" class="collision_b" />
+      <geom name="b_contact4" mesh="b_contact4" class="collision_b" />
     </body>
 
 
     <body name="object_7" pos="-0.12 0.38 0.93" euler="0 0 0">
-      <!--ALARM CLOCK-->
-      <freejoint/>
-      <site name="object_7" size="0.00001" rgba='0 0 0 0'/> 
+      <!--ALARM
+      CLOCK-->
+      <freejoint />
+      <site name="object_7" size="0.00001" pos="0 0 -0.052" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-      <geom name="alarmclock_visual" mesh="alarmclock" class="visual_b" rgba="0.5 0.5 1 1" />
-      <geom name="alarmclock_contact0" mesh="al_contact0" class="collision_b"/>
+      <geom name="alarmclock_visual1" mesh="alarmclock1" class="visual_b" rgba="1 1 1 1" />
+      <geom name="alarmclock_visual2" mesh="alarmclock2" class="visual_b" rgba="0 0 0 1" />
+      <geom name="alarmclock_visual3" mesh="alarmclock3" class="visual_b" rgba="0.5 0.5 1 1" />
+
+      <geom name="alarmclock_contact0" mesh="al_contact0" class="collision_b" />
     </body>
 
     <body name="object_8" pos="0.05 0.38 0.93" euler="0 0 0">
       <!--CUP-->
-      <freejoint/>
-      <site name="object_8" size="0.00001" rgba='0 0 0 0'/> 
+      <freejoint />
+      <site name="object_8" size="0.00001" pos="0 0 -0.0485" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-        <geom name="cup_visual" mesh="cup" class="visual_b" rgba="1 0.75 0.8 1.0" />
-        <geom name="cup_contact0" mesh="p_contact0" class="collision_b"/>
-        <geom name="cup_contact1" mesh="p_contact1" class="collision_b"/>
-        <geom name="cup_contact2" mesh="p_contact2" class="collision_b"/>
-        <geom name="cup_contact3" mesh="p_contact3" class="collision_b"/>
-        <geom name="cup_contact4" mesh="p_contact4" class="collision_b"/>
-        <geom name="cup_contact5" mesh="p_contact5" class="collision_b"/>
-        <geom name="cup_contact6" mesh="p_contact6" class="collision_b"/>
-        <geom name="cup_contact7" mesh="p_contact7" class="collision_b"/>
-        <geom name="cup_contact8" mesh="p_contact8" class="collision_b"/>
-        <geom name="cup_contact9" mesh="p_contact9" class="collision_b"/>
-        <geom name="cup_contact10" mesh="p_contact10" class="collision_b"/>
-        <geom name="cup_contact11" mesh="p_contact11" class="collision_b"/>
+      <geom name="cup_visual" mesh="cup" class="visual_b" rgba="1 0.75 0.8 1.0" />
+      <geom name="cup_contact0" mesh="p_contact0" class="collision_b" />
+      <geom name="cup_contact1" mesh="p_contact1" class="collision_b" />
+      <geom name="cup_contact2" mesh="p_contact2" class="collision_b" />
+      <geom name="cup_contact3" mesh="p_contact3" class="collision_b" />
+      <geom name="cup_contact4" mesh="p_contact4" class="collision_b" />
+      <geom name="cup_contact5" mesh="p_contact5" class="collision_b" />
+      <geom name="cup_contact6" mesh="p_contact6" class="collision_b" />
+      <geom name="cup_contact7" mesh="p_contact7" class="collision_b" />
+      <geom name="cup_contact8" mesh="p_contact8" class="collision_b" />
+      <geom name="cup_contact9" mesh="p_contact9" class="collision_b" />
+      <geom name="cup_contact10" mesh="p_contact10" class="collision_b" />
+      <geom name="cup_contact11" mesh="p_contact11" class="collision_b" />
     </body>
 
     <body name="object_5" pos="0.3 0.38 0.93" euler="0 0 0.8">
-      <!--RUBBER DUCK-->
-      <freejoint/>
-      <site name="object_5" size="0.00001" rgba='0 0 0 0'/> 
-      
+      <!--RUBBER
+      DUCK-->
+      <freejoint />
+      <site name="object_5" size="0.00001" pos="0 0 -0.0475" rgba='0 0 0 0' />
+
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-      <geom name="rubberduck_visual" rgba="0.8 0.8 0 1"  class="visual_b" mesh="rubberduck"/>
-      <geom name="rubberduck_contact0" mesh="d_contact0" class="collision_b"/>
-      <geom name="rubberduck_contact1" mesh="d_contact1" class="collision_b"/>
-      <geom name="rubberduck_contact2" mesh="d_contact2" class="collision_b"/>
+      <geom name="rubberduck_visual1" rgba="0.8 0.8 0 1" class="visual_b" mesh="duck1" />
+      <geom name="rubberduck_visual2" rgba="0 0 0 1" class="visual_b" mesh="duck2" />
+      <geom name="rubberduck_visual3" rgba="1 0.35 0 1" class="visual_b" mesh="duck3" />
+
+      <geom name="rubberduck_contact0" mesh="d_contact0" class="collision_b" />
+      <geom name="rubberduck_contact1" mesh="d_contact1" class="collision_b" />
+      <geom name="rubberduck_contact2" mesh="d_contact2" class="collision_b" />
     </body>
 
     <body name="object_3" pos="-0.4 0.38 0.93" euler="0 0 0">
       <!--DONUT-->
-      <freejoint/>
-      <site name="object_3" size="0.00001" rgba='0 0 0 0'/> 
+      <freejoint />
+      <site name="object_3" size="0.00001" pos="0 0 -0.012" rgba='0 0 0 0' />
 
       <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
-      <geom name="torusmedium_visual" rgba="0.9 0.54 0.26 1" mesh="torusmedium" class="visual_b"/>
-      <geom name="torusmedium_contact0" mesh="t_contact0" class="collision_b"/>
-      <geom name="torusmedium_contact1" mesh="t_contact1" class="collision_b"/>
-      <geom name="torusmedium_contact2" mesh="t_contact2" class="collision_b"/>
-      <geom name="torusmedium_contact3" mesh="t_contact3" class="collision_b"/>
-      <geom name="torusmedium_contact4" mesh="t_contact4" class="collision_b"/>
+      <geom name="torusmedium_visual_1" rgba="0.46 0.22 0.19 1"  mesh="torusmedium1" class="visual_b" />
+      <geom name="torusmedium_visual_2" rgba="0.9 0.54 0.26 1" mesh="torusmedium2" class="visual_b" />
+      <geom name="torusmedium_contact0" mesh="t_contact0" class="collision_b" />
+      <geom name="torusmedium_contact1" mesh="t_contact1" class="collision_b" />
+      <geom name="torusmedium_contact2" mesh="t_contact2" class="collision_b" />
+      <geom name="torusmedium_contact3" mesh="t_contact3" class="collision_b" />
+      <geom name="torusmedium_contact4" mesh="t_contact4" class="collision_b" />
+    </body>
+
+    <body name="object_9">
+      <!-- Water bottle -->
+      <freejoint />
+      <site name="object_9" size="0.00001" pos="0 0 -0.012" rgba='0 0 0 0' />
+
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="waterbottle1" mesh="waterbottle1" class="visual_b" rgba="0 0.53 0.62 1"/>
+      <geom name="waterbottle2" mesh="waterbottle2" class="visual_b" rgba="1 1 1 1"/>
+
+      <geom name="w_contact0" mesh="w_contact0" class="collision_b" />
+      <geom name="w_contact1" mesh="w_contact1" class="collision_b" />
+    </body>
+
+    <body name="object_10">
+      <!-- LIGHT BULB -->
+      <freejoint />
+      <site name="object_10" size="0.00001" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <geom name="lightbulb1" mesh="lightbulb1" class="visual_b" rgba="1 0.98 0.7 1"/>
+      <geom name="lightbulb2" mesh="lightbulb2" class="visual_b" rgba='0.412 0.412 0.412 1'/>
+
+      <geom name="l_contact0" mesh="l_contact0" class="collision_b" />
+      <geom name="l_contact1" mesh="l_contact1" class="collision_b" />
+    </body>
+
+    <body name="object_11">
+      <!-- WINE GLASS -->
+      <freejoint />
+      <site name="object_11" size="0.00001" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001"/>
+      <geom name="wineglass" mesh="wineglass" class="visual_b" rgba="0.5 0.7 0.9 1"/>
+      <geom name="contact0" mesh="contact0" class="collision_b" />
+      <geom name="contact1" mesh="contact1" class="collision_b" />
+      <geom name="contact2" mesh="contact2" class="collision_b" />
+      <geom name="contact3" mesh="contact3" class="collision_b" />
+      <geom name="contact4" mesh="contact4" class="collision_b" />
+      <geom name="contact5" mesh="contact5" class="collision_b" />
+      <geom name="contact6" mesh="contact6" class="collision_b" />
+      <geom name="contact7" mesh="contact7" class="collision_b" />
+      <geom name="contact8" mesh="contact8" class="collision_b" />
+      <geom name="contact9" mesh="contact9" class="collision_b" />
+      <geom name="contact10" mesh="contact10" class="collision_b" />
+      <geom name="contact11" mesh="contact11" class="collision_b" />
+      <geom name="contact12" mesh="contact12" class="collision_b" />
+      <geom name="contact13" mesh="contact13" class="collision_b" />
+      <geom name="contact14" mesh="contact14" class="collision_b" />
+      <geom name="contact15" mesh="contact15" class="collision_b" />
+      <geom name="contact16" mesh="contact16" class="collision_b" />
+      <geom name="contact17" mesh="contact17" class="collision_b" />
+      <geom name="contact18" mesh="contact18" class="collision_b" />
+      <geom name="contact19" mesh="contact19" class="collision_b" />
+      <geom name="contact20" mesh="contact20" class="collision_b" />
+      <geom name="contact21" mesh="contact21" class="collision_b" />
+      <geom name="contact22" mesh="contact22" class="collision_b" />
+      <geom name="contact23" mesh="contact23" class="collision_b" />
+      <geom name="contact24" mesh="contact24" class="collision_b" />
+      <geom name="contact25" mesh="contact25" class="collision_b" />
+      <geom name="contact26" mesh="contact26" class="collision_b" />
+      <geom name="contact27" mesh="contact27" class="collision_b" />
+      <geom name="contact28" mesh="contact28" class="collision_b" />
+      <geom name="contact29" mesh="contact29" class="collision_b" />
+      <geom name="contact30" mesh="contact30" class="collision_b" />
+      <geom name="contact31" mesh="contact31" class="collision_b" />
+      <geom name="contact32" mesh="contact32" class="collision_b" />
+      <geom name="contact33" mesh="contact33" class="collision_b" />
+    </body>
+
+
+    <body name="object_12">
+      <!-- Bowl -->
+      <freejoint />
+      <site name="object_12" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="tubes" mesh="bowl" class="visual_b" rgba="0.8 0.447 0.0 1"/>
+      <geom name="bowl_contact0" mesh="bowl_contact0" class="collision_b" />
+      <geom name="bowl_contact1" mesh="bowl_contact1" class="collision_b" />
+      <geom name="bowl_contact2" mesh="bowl_contact2" class="collision_b" />
+      <geom name="bowl_contact3" mesh="bowl_contact3" class="collision_b" />
+      <geom name="bowl_contact4" mesh="bowl_contact4" class="collision_b" />
+      <geom name="bowl_contact5" mesh="bowl_contact5" class="collision_b" />
+      <geom name="bowl_contact6" mesh="bowl_contact6" class="collision_b" />
+      <geom name="bowl_contact7" mesh="bowl_contact7" class="collision_b" />
+      <geom name="bowl_contact8" mesh="bowl_contact8" class="collision_b" />
+      <geom name="bowl_contact9" mesh="bowl_contact9" class="collision_b" />
+      <geom name="bowl_contact10" mesh="bowl_contact10" class="collision_b" />
+      <geom name="bowl_contact11" mesh="bowl_contact11" class="collision_b" />
+
+    </body>
+
+    <!-- eyeglasses , teapot  -->
+
+
+    <!-- Cylinder -->
+    <!-- <body name="object_13">
+      
+      <freejoint />
+      <site name="cylinder" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="cylinder" mesh="cylindersmall" class="visual_b" rgba="0.8 0.6 1.0 1"/>
+      <geom name="c_contact0" mesh="c_contact0" class="collision_b" />
+    </body> -->
+
+    <body name="object_13">
+      <!-- headphones -->
+      <freejoint />
+      <site name="object_13" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="headphones" mesh="headphones" class="visual_b" rgba="0.4 0.4 0.4 1"/>
+      <geom name="headphones_contact0" mesh="headphones_contact0" class="collision_b" />
+      <geom name="headphones_contact1" mesh="headphones_contact1" class="collision_b" />
+      <geom name="headphones_contact2" mesh="headphones_contact2" class="collision_b" />
+      <geom name="headphones_contact3" mesh="headphones_contact3" class="collision_b" />
+      <geom name="headphones_contact4" mesh="headphones_contact4" class="collision_b" />
+      <geom name="headphones_contact5" mesh="headphones_contact5" class="collision_b" />
+      <geom name="headphones_contact6" mesh="headphones_contact6" class="collision_b" />
+      <geom name="headphones_contact7" mesh="headphones_contact7" class="collision_b" />
+    </body>
+
+
+    <body name="object_14">
+      <!-- Hammer -->
+      <freejoint />
+      <site name="object_14" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="hammer1" mesh="hammer1" class="visual_b" rgba='0.545 0.271 0 1'/>
+      <geom name="hammer2" mesh="hammer2" class="visual_b" rgba='0.412 0.412 0.412 1'/>
+
+      <geom name="h_contact0" mesh="hammer_contact0" class="collision_b" />
+      <geom name="h_contact1" mesh="hammer_contact1" class="collision_b" />
+    </body>
+
+
+    <body name="object_15">
+      <!-- Camera -->
+      <freejoint />
+      <site name="object_15" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' /> 
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+
+      
+      <geom name="camera1" mesh="camera1" class="visual_b" rgba="0.75 0.75 0.75 1"/>
+      <geom name="camera2" mesh="camera2" class="visual_b" rgba="0 0 0 1"/>
+      <geom name="camera3" mesh="camera3" class="visual_b" rgba="0.45 0.45 0.45 1"/>
+      <geom name="camera4" mesh="camera4" class="visual_b" rgba="1.0 1.0 0.6 1"/>
+
+      <geom name="cam_contact0" mesh="camera_contact0" class="collision_b" />
+      <geom name="cam_contact1" mesh="camera_contact1" class="collision_b" />
+    </body>
+
+
+    <body name="object_16">
+      <!-- Stapler -->
+      <freejoint />
+      <site name="object_16" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="stapler1" mesh="stapler1" class="visual_b" rgba="0.0 0.0 0.75 1"/>
+      <geom name="stapler2" mesh="stapler2" class="visual_b" rgba="0.75 0.75 0.75 1"/>
+
+      <geom name="stapler_contact0" mesh="stapler_contact0" class="collision_b" />
+      <geom name="stapler_contact1" mesh="stapler_contact1" class="collision_b" />
+      <geom name="stapler_contact2" mesh="stapler_contact2" class="collision_b" />
+      <geom name="stapler_contact3" mesh="stapler_contact3" class="collision_b" />
+      <geom name="stapler_contact4" mesh="stapler_contact4" class="collision_b" />
+    </body>
+
+    <body name="object_17">
+      <!-- Sphere -->
+      <freejoint />
+      <site name="object_17" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0'/>
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="sphere" mesh="sphere" class="visual_b" rgba="1 1 1 1" />
+      <geom name="sphere_contact0" mesh="sphere_contact0" class="collision_b" rgba="1 1 1 1" />
+    </body>
+
+
+    <body name="object_18">
+      <!-- Train -->
+      <freejoint />
+      <site name="object_18" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+
+      <geom name="train1" mesh="train1" class="visual_b" rgba="0.196 0.804 0.196 1" />
+      <geom name="train2" mesh="train2" class="visual_b" rgba="0.4 0.4 0.4 1" />
+      <geom name="train3" mesh="train3" class="visual_b" rgba="0.545 0.271 0.075 1" />
+
+      <geom name="train_contact0" mesh="train_contact0" class="collision_b" />
+    </body>
+
+    <body name="object_19">
+      <!-- Teapot -->
+      <freejoint />
+      <site name="object_19" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+      <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+      <geom name="teapot" mesh="teapot" class="visual_b" rgba="0.7 0.5 0.5 1" />
+      <geom name="teapot_contact0" mesh="teapot_contact0" class="collision_b" />
+      <geom name="teapot_contact1" mesh="teapot_contact1" class="collision_b" />
+      <geom name="teapot_contact2" mesh="teapot_contact2" class="collision_b" />
+      <geom name="teapot_contact3" mesh="teapot_contact3" class="collision_b" />
+      <geom name="teapot_contact4" mesh="teapot_contact4" class="collision_b" />
+      <geom name="teapot_contact5" mesh="teapot_contact5" class="collision_b" />
+      <geom name="teapot_contact6" mesh="teapot_contact6" class="collision_b" />
+      <geom name="teapot_contact7" mesh="teapot_contact7" class="collision_b" />
+      <geom name="teapot_contact8" mesh="teapot_contact8" class="collision_b" />
+      <geom name="teapot_contact9" mesh="teapot_contact9" class="collision_b" />
+      <geom name="teapot_contact10" mesh="teapot_contact10" class="collision_b" />
+      <geom name="teapot_contact11" mesh="teapot_contact11" class="collision_b" />
+      <geom name="teapot_contact12" mesh="teapot_contact12" class="collision_b" />
+      <geom name="teapot_contact13" mesh="teapot_contact13" class="collision_b" />
+      <geom name="teapot_contact14" mesh="teapot_contact14" class="collision_b" />
+      <geom name="teapot_contact15" mesh="teapot_contact15" class="collision_b" />
+      <geom name="teapot_contact16" mesh="teapot_contact16" class="collision_b" />
+      <geom name="teapot_contact17" mesh="teapot_contact17" class="collision_b" />
+      <geom name="teapot_contact18" mesh="teapot_contact18" class="collision_b" />
+      <geom name="teapot_contact19" mesh="teapot_contact19" class="collision_b" />
+      <geom name="teapot_contact20" mesh="teapot_contact20" class="collision_b" />
+      <geom name="teapot_contact21" mesh="teapot_contact21" class="collision_b" />
+      <geom name="teapot_contact22" mesh="teapot_contact22" class="collision_b" />
+      <geom name="teapot_contact23" mesh="teapot_contact23" class="collision_b" />
+      <geom name="teapot_contact24" mesh="teapot_contact24" class="collision_b" />
+      <geom name="teapot_contact25" mesh="teapot_contact25" class="collision_b" />
+      <geom name="teapot_contact26" mesh="teapot_contact26" class="collision_b" />
+      <geom name="teapot_contact27" mesh="teapot_contact27" class="collision_b" />
+      <geom name="teapot_contact28" mesh="teapot_contact28" class="collision_b" />
+      <geom name="teapot_contact29" mesh="teapot_contact29" class="collision_b" />
+      <geom name="teapot_contact30" mesh="teapot_contact30" class="collision_b" />
+      <geom name="teapot_contact31" mesh="teapot_contact31" class="collision_b" />
+      <geom name="teapot_contact32" mesh="teapot_contact32" class="collision_b" />
+      <geom name="teapot_contact33" mesh="teapot_contact33" class="collision_b" />
+      <geom name="teapot_contact34" mesh="teapot_contact34" class="collision_b" />
+      <geom name="teapot_contact35" mesh="teapot_contact35" class="collision_b" />
+      <geom name="teapot_contact36" mesh="teapot_contact36" class="collision_b" />
+      <geom name="teapot_contact37" mesh="teapot_contact37" class="collision_b" />
+      <geom name="teapot_contact38" mesh="teapot_contact38" class="collision_b" />
+      <geom name="teapot_contact39" mesh="teapot_contact39" class="collision_b" />
+      <geom name="teapot_contact40" mesh="teapot_contact40" class="collision_b" />
+    </body>
+
+
+    <body name="object_20">
+        <!-- Eyeglasses -->
+        <freejoint />
+        <site name="object_20" size="0.000005" pos="0 0 -0.012" rgba='0 0 0 0' />
+        <inertial pos="0 0 0" mass="0.088" diaginertia="0.0001 0.0001 0.0001" />
+        <geom name="eyeglasses" mesh="eyeglasses" class="visual_b" rgba="0.8 0 0 1" />
+        <geom name="eyeglasses_contact0" mesh="eyeglasses_contact0" class="collision_b"/>
+        <geom name="eyeglasses_contact1" mesh="eyeglasses_contact1" class="collision_b"/>
+        <geom name="eyeglasses_contact2" mesh="eyeglasses_contact2" class="collision_b"/>
+        <geom name="eyeglasses_contact3" mesh="eyeglasses_contact3" class="collision_b"/>
+        <geom name="eyeglasses_contact4" mesh="eyeglasses_contact4" class="collision_b"/>
+        <geom name="eyeglasses_contact5" mesh="eyeglasses_contact5" class="collision_b"/>
+        <geom name="eyeglasses_contact6" mesh="eyeglasses_contact6" class="collision_b"/>
+        <geom name="eyeglasses_contact7" mesh="eyeglasses_contact7" class="collision_b"/>
+        <geom name="eyeglasses_contact8" mesh="eyeglasses_contact8" class="collision_b"/>
+        <geom name="eyeglasses_contact9" mesh="eyeglasses_contact9" class="collision_b"/>
+        <geom name="eyeglasses_contact10" mesh="eyeglasses_contact10" class="collision_b"/>
+        <geom name="eyeglasses_contact11" mesh="eyeglasses_contact11" class="collision_b"/>
+        <geom name="eyeglasses_contact12" mesh="eyeglasses_contact12" class="collision_b"/>
+        <geom name="eyeglasses_contact13" mesh="eyeglasses_contact13" class="collision_b"/>
+        <geom name="eyeglasses_contact14" mesh="eyeglasses_contact14" class="collision_b"/>
+        <geom name="eyeglasses_contact15" mesh="eyeglasses_contact15" class="collision_b"/>
+        <geom name="eyeglasses_contact16" mesh="eyeglasses_contact16" class="collision_b"/>
+        <geom name="eyeglasses_contact17" mesh="eyeglasses_contact17" class="collision_b"/>
+        <geom name="eyeglasses_contact18" mesh="eyeglasses_contact18" class="collision_b"/>
     </body>
 
   </worldbody>
 
-  <keyframe> 
-    <!--                                                                                                                                                                 APPLE                        CUBE                               BEAKER                                     BEAKER BASE                               BANANA                               ALARM                            CUP                             DUCK                        DONUT       -->
-    <key qpos="4.78 -2.07 2.62 3.06 -1.58 0 0.00254555 0.000149027 0.00285228 -0.00308142 0.00260377 0.000143244 0.00284266 -0.00307384        -0.5 0.38 0.875 1 0 0 0       -0.33 0.38 0.845 1 0 0 0       -0.165 0.38 0.93291 0.707 0.707 0 0        -0.165 0.38 0.924862 0.707 0.707 0 0        0 0.38 0.841591 0.783 0 0 0.621        0.165 0.38 0.878 1 0 0 0       0.33 0.38 0.875775 1 0 0 0       0.5 0.38 0.874 1 0 0 0       0 0.2 0.839 1 0 0 0" ctrl="1.62 -0.81679 -2.60786 -0.43981 1.57924 0.045 0.00254555" />
+
+  <keyframe>
+    <!--                                 FRANKA JOINTS                                                                                                                APPLE                                    CUBE                                 BEAKER                                     BEAKER BASE                                    BANANA                                    ALARM                               CUP                                      DUCK                           DONUT                   WATERBOTTLE                         LIGHTBULB                     wineglass                       bowl                      headphones                         Hammer                            Camera                    stapler                  SPHERE                          TRAIN                 TEAPOT                  eyeglass               -->
+
+    <key name="default" qpos="4.78 -2.07 2.62 3.06 -1.58 0 0.00254555 0.000149027 0.00285228 -0.00308142 0.00260377 0.000143244 0.00284266 -0.00307384            -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.858 1 0 0 0         -0.1 0.58 0.886 1 0 0 0      0.1 0.58 0.848 1 0 0 0     0.3 0.58 0.845 1 0 0 0       0.45 0.58 0.834 0.92388 0 0 -0.38268    -0.5 0.75 0.86 1 0 0 0     -0.3 0.75 0.846 1 0 0 0    -0.1 0.75 0.853 1 0 0 0    0.1 0.75 0.867 1 0 0 0   0.3 0.75 0.859 1 0 0 0    0.48 0.74 0.839 1 0 0 0         "
+      ctrl="1.62 -0.81679 -2.60786 -0.43981 1.57924 0.045 0.00254555" />
+
+    <!-- <key name="default" qpos="0.165 0.607 -0.116 -2.28 0.029 3.36 0.844 0 0            -0.5 0.38 0.875 1 0 0 0                -0.33 0.38 0.845 1 0 0 0          -0.165 0.38 0.93291 0.707 0.707 0 0           -0.165 0.38 0.924862 0.707 0.707 0 0           0 0.38 0.841591 0.783 0 0 0.621            0.165 0.38 0.878 1 0 0 0           0.33 0.38 0.875775 1 0 0 0             0.5 0.38 0.874 1 0 0 0            0 0.2 0.839 1 0 0 0           -0.5 0.58 0.895 1 0 0 0          -0.3 0.58 0.858 1 0 0 0         -0.1 0.58 0.886 1 0 0 0      0.1 0.58 0.848 1 0 0 0     0.3 0.58 0.845 1 0 0 0       0.45 0.58 0.834 0.92388 0 0 -0.38268    -0.5 0.75 0.86 1 0 0 0     -0.3 0.75 0.846 1 0 0 0    -0.1 0.75 0.843 1 0 0 0    0.1 0.75 0.867 1 0 0 0   0.3 0.75 0.859 1 0 0 0    0.48 0.74 0.839 1 0 0 0         "
+      ctrl="0.165 0.607 -0.116 -2.28 0.029 3.36 0.844 0" /> -->
   </keyframe>
 
 </mujoco>

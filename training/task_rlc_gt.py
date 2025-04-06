@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
     parser.add_argument('--task_name', default='gt', type=str)
     parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
     parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
