@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
     parser.add_argument('--task_name', default='gt', type=str)
     parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
     parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
@@ -357,7 +357,7 @@ def run(seed):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     task_id = int(os.environ.get('SLURM_ARRAY_TASK_ID', 0))
-    seeds = [task_id, task_id + 5]
+    seeds = [task_id, task_id + 6]
     processes = []
     for s in seeds:
         p = mp.Process(target=run, args=(s,))

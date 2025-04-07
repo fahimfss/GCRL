@@ -14,7 +14,6 @@ os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='.10'
 
 from jsac.helpers.logger import Logger
-from jsac.helpers.eval import start_eval_process
 from jsac.envs.rl_chemist.env import RLC_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
@@ -41,6 +40,12 @@ config = {
     'mlp': [1024, 1024],
 }
 
+GOALTYPE_MASK = "G1_Mask"
+GOALTYPE_ONE_HOT = "G2_OH"
+GOALTYPE_3D = "G3_3d"
+GOALTYPE_CLIP = "G4_Clip"
+GOALTYPE_TARGET_STATE = "G5_TS"
+
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
@@ -48,22 +53,22 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
-    parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
+    parser.add_argument('--env_name', default='FrankaEnv-v1', type=str)
+    parser.add_argument('--task_name', default='gt', type=str)
+    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
+    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
-    parser.add_argument('--step_time', default=0.0, type=float)
-    parser.add_argument('--episode_steps', default=150, type=int) 
-    parser.add_argument('--digital_curtain', default=False, action='store_true')
+    parser.add_argument('--step_time', default=0.0, type=float) 
+    parser.add_argument('--episode_steps', default=150, type=int)
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=400_000, type=int)
+    parser.add_argument('--env_steps', default=300_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -113,21 +118,24 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main(seed=-1, env_name=None):
+def main(seed=-1, goal_type=None, reward_mode=None):
     task_start_time = time.time()
     args = parse_args()
 
     if seed != -1:
         args.seed = seed
     
-    if env_name is not None:
-        args.env_name = env_name
+    if goal_type is not None:
+        args.goal_type = goal_type
+        
+    if reward_mode is not None:
+        args.reward_mode = reward_mode
 
     if not args.sync_mode:
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.classifier}'
+    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -181,11 +189,12 @@ def main(seed=-1, env_name=None):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height,
-                   classifier=args.classifier,
+                   args.image_height, 
+                   goal_type=args.goal_type,
+                   reward_mode=args.reward_mode,
                    step_time=step_time,
-                   ofd_index=args.seed,
-                   digital_curtain=args.digital_curtain)
+                   ofd_index=args.seed)
+    
     env = WrappedEnv(env, args.episode_steps)
 
     set_seed_everywhere(seed=args.seed)
@@ -207,9 +216,7 @@ def main(seed=-1, env_name=None):
         agent = AsyncSACRADAgent(vars(args), sync_queues)
         
     update_paused = True
-    time.sleep(5)
     state = env.reset(create_vid=False)
-    
     first_step = True
 
     while env.total_steps < args.env_steps:
@@ -287,12 +294,12 @@ def eval(args, params):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height,
-                   classifier=args.classifier,
+                   args.image_height, 
+                   goal_type=args.goal_type,
+                   reward_mode=args.reward_mode,
                    step_time=step_time,
                    ofd_index=args.seed,
-                   env_mode="eval_ofd",
-                   digital_curtain=args.digital_curtain)
+                   env_mode="eval_ofd")
     
     env = WrappedEnv(env, args.episode_steps)
 
@@ -313,7 +320,7 @@ def eval(args, params):
     
     rng, key1, key2 = random.split(rng, 3)
     actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
-
+ 
     num_episods_per_object = 25
     for object_id in range(20): 
         stats={'object_id': object_id}
@@ -342,12 +349,58 @@ def eval(args, params):
             f.write(str(stats) + '\n')
                 
 
-if __name__ == '__main__':
-    mp.set_start_method('spawn')
-    args, params = main() 
-    eval(args, params)
+def run(seed):
+    r1, r2 = "distance", "mask_size"
+    
+    if seed == 0:
+        s = 0
+        g = GOALTYPE_MASK
+        r = r2
+    elif seed == 1:
+        s = 11
+        g = GOALTYPE_MASK
+        r = r1
+    elif seed == 2:
+        s = 11
+        g = GOALTYPE_CLIP
+        r = r1
+    elif seed == 3:
+        s = 8
+        g = GOALTYPE_TARGET_STATE
+        r = r1
+    elif seed == 4:
+        s = 11
+        g = GOALTYPE_MASK
+        r = r2
+    elif seed == 5:
+        s = 11
+        g = GOALTYPE_3D
+        r = r1
+    elif seed == 6:
+        s = 2
+        g = GOALTYPE_TARGET_STATE
+        r = r1
+    elif seed == 7:
+        s = 11
+        g = GOALTYPE_TARGET_STATE
+        r = r1
+        
+    args, params = main(seed=s, goal_type=g, reward_mode=r)
     
     dir = args.work_dir
     params_path = os.path.join(dir, 'params.pkl') 
     with open(params_path, 'wb') as f: 
-        f.write(flax.serialization.to_bytes(params)) 
+        f.write(flax.serialization.to_bytes(params))  
+
+if __name__ == '__main__':
+    mp.set_start_method('spawn')
+    task_id = int(os.environ.get('SLURM_ARRAY_TASK_ID', 0))
+    seeds = [task_id, task_id + 4]
+    processes = []
+    for s in seeds:
+        p = mp.Process(target=run, args=(s,))
+        p.start()
+        processes.append(p)
+        time.sleep(600)
+    for p in processes:
+        p.join()

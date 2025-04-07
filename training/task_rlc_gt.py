@@ -10,7 +10,7 @@ import numpy as np
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 # os.environ['CUDA_VISIBLE_DEVICES']='0'
-# os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
+os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='.10'
 
 from jsac.helpers.logger import Logger
