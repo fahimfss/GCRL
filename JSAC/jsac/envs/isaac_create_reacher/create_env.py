@@ -1,26 +1,33 @@
 import cv2
 import time
+import math
 import threading
 import numpy as np
 import gymnasium
 from gymnasium.spaces import Box
 from collections import deque
-import multiprocessing as mp
+import random
 
 OB_TYPE_1 = "MASK"
 OB_TYPE_2 = "OH"
 OB_TYPE_3 = "MASK_OH"
 
+TARGET_X_BOUNDARY = 0.0
+TARGET_Y_BOUNDARY = 0.0
+
 
 def print_with_delay_thread(text, delay=0.2):
     threading.Timer(delay, print, args=(text,)).start()
+    
+def distance(p1, p2):
+    return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2 + (p1[2]-p2[2])**2)
 
 
 class CreateReacherEnv(gymnasium.Env):
     def __init__(self, 
                  scene_path, 
                  seed=-1, 
-                 min_target_size=0.35, 
+                 min_target_distance=0.15, 
                  physics_dt=0.06, 
                  rendering_dt = 0.06, 
                  headless=True, 
@@ -28,7 +35,8 @@ class CreateReacherEnv(gymnasium.Env):
                  image_width=80, 
                  image_height=60, 
                  ob_type=OB_TYPE_1,
-                 randomize_target_pos=False):
+                 randomize_target_pos=False,
+                 reward_mode="distance"):  ## distance, mask_size
         
         from isaacsim import SimulationApp
         self._simulation_app = SimulationApp({"headless": headless})
@@ -38,7 +46,7 @@ class CreateReacherEnv(gymnasium.Env):
 
         if seed != -1:
             self.seed(seed)
-        self._min_target_size = min_target_size
+        self._min_target_distance = min_target_distance
         
         self.randomize_target_pos = randomize_target_pos
 
@@ -59,20 +67,22 @@ class CreateReacherEnv(gymnasium.Env):
         self._action_buffer = deque([], maxlen=self._action_history)
 
         self._proprioception_shape = (2,)
-        self._v_w_low = [-1, -3]
-        self._v_w_high = [1, 3]
+        self._v_w_low = [-1, -4.5]
+        self._v_w_high = [1, 4.5]
         self._orientation_low = np.array([-1, -1])
         self._orientation_high = np.array([1, 1])
         
+        self._reward_mode = reward_mode
+        
         self._t2 = ([], []) # PINK
-        #                         0: Magenta        1: Blue          2: Red          3: Green                    
-        self._lower = np.array([[130, 190, 215], [105, 190, 215],  [0, 200, 200], [50, 110, 220]])
-        self._upper = np.array([[175, 255, 255], [130, 255, 255], [40, 255, 255], [85, 250, 255]])
+        #                         0: Magenta        1: Green          2: Red          3: Blue                   
+        self._lower = np.array([[130, 190, 215], [50, 110, 220],  [0, 200, 200], [105, 190, 215]])
+        self._upper = np.array([[175, 255, 255], [85, 250, 255], [40, 255, 255], [130, 255, 255]])
         self._target_names = {     
             0: "Magenta",        
-            1: "Blue",         
+            1: "Green",         
             2: "Red", 
-            3: "Green"   
+            3: "Blue"   
         }
         self._target_oh = np.array([
             [1.0, 0.0, 0.0, 0.0], 
@@ -129,20 +139,21 @@ class CreateReacherEnv(gymnasium.Env):
             prim_path="/create_3/base_link/rsd455/RSD455/Camera_OmniVision_OV9782_Color",
             resolution=(640, 480)
         )
+        self._camera.set_projection_type("pinhole")
 
         self._need_reset = True
     
     def randomize_targets(self):
         from omni.isaac.core.utils.rotations import euler_angles_to_quat
-        import random
-        pos_slots = [
-            (0.6495, random.uniform(-0.35, 0.35), 90.0),
-            (random.uniform(0.1, 0.45), -0.6495, 0.0),
-            (random.uniform(-0.45, -0.1), -0.6495, 0.0),
-            (-0.6495, random.uniform(-0.35, 0.35), 90.0)
+        
+        self._pos_slots = [
+            (0.6495, random.uniform(-0.3, 0.3), 90.0),
+            (random.uniform(-0.3, 0.3), -0.6495, 0.0),
+            (random.uniform(-0.3, 0.3), 0.6495, 0.0),
+            (-0.6495, random.uniform(-0.3, 0.3), 90.0)
         ]
         random.shuffle(self._squares)
-        for sq, (px, py, yaw_deg) in zip(self._squares, pos_slots):
+        for sq, (px, py, yaw_deg) in zip(self._squares, self._pos_slots):
             sq.set_world_pose(
                 position=np.array([float(px), float(py), 0.13457]),
                 orientation=euler_angles_to_quat([0.0, 0.0, yaw_deg], degrees=True)
@@ -175,6 +186,13 @@ class CreateReacherEnv(gymnasium.Env):
         self._controller.reset()
         self._camera.initialize()
         self._target_no = np.random.choice([0, 1, 2, 3])
+        
+        target_name = f'target_{self._target_no+1}'
+        for target in self._squares:
+            if target.name == target_name:
+                self._target_pos = target.get_world_pose()[0]
+                break
+        
         pr = 'Target: ' + self._target_names[self._target_no]
         print_with_delay_thread(pr)
         
@@ -186,6 +204,12 @@ class CreateReacherEnv(gymnasium.Env):
             img = self._camera.get_rgb()
         
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        res = self._camera.get_image_coords_from_world_points(np.expand_dims(np.array(self._target_pos), 0))
+        x, y = res[0, 0], res[0, 1]
+        self._target_in_boundary = self.check_target_in_boundary(x, y)
+        
+        
         self.get_target_size(img)
         
         if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
@@ -242,12 +266,29 @@ class CreateReacherEnv(gymnasium.Env):
         img = self._camera.get_rgb()
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         
+        res = self._camera.get_image_coords_from_world_points(np.expand_dims(np.array(self._target_pos), 0))
+        x, y = int(res[0, 0]), int(res[0, 1])
+        
+        # cv2.circle(img, (x, y), radius=5, color=(255, 255, 255), thickness=-1)
+        # cv2.imshow("Image with Circle", img)
+        # cv2.waitKey(50)
+        
+        self._target_in_boundary = self.check_target_in_boundary(x, y)
+        # print(self._target_names[self._target_no], '| target_in_boundary:', self._target_in_boundary)
+        
+        camera_pos = self._camera.get_world_pose()[0]
+        dist = distance(camera_pos, self._target_pos)
+        
         # cv2.imshow('w', img)
         # cv2.waitKey(60) 
         
         target_size = self.get_target_size(img)
-        reward = (2.0/(1+np.exp(-target_size*10.0))) - 1.0 
-        reward = reward -1
+        
+        if self._reward_mode == "mask_size":
+            reward = (2.0/(1+np.exp(-target_size*10.0))) - 1.0 
+            reward = reward -1
+        else:
+            reward = -dist
         
         if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
             # mask = cv2.cvtColor(self.latest_mask, cv2.COLOR_GRAY2RGB)
@@ -268,12 +309,12 @@ class CreateReacherEnv(gymnasium.Env):
 
         done = False
 
-        if abs(orientation[0]) > 30 or abs(orientation[1]) > 30:
-            done = True
-            reward = -100
-            self._need_reset = True
+        # if abs(orientation[0]) > 30 or abs(orientation[1]) > 30:
+        #     done = True
+        #     reward = -100
+        #     self._need_reset = True
 
-        if not done and target_size >= self._min_target_size:
+        if self._target_in_boundary and dist < self._min_target_distance:
             done = True
             reward = 5
             self._need_reset = True
@@ -317,6 +358,19 @@ class CreateReacherEnv(gymnasium.Env):
     def close(self):
         self._simulation_app.close()
         cv2.destroyAllWindows()
+        
+    def check_target_in_boundary(self, x, y):
+        w, h = 640, 480 
+        
+        min_x = w * TARGET_X_BOUNDARY
+        max_x = w * (1 - TARGET_X_BOUNDARY)
+        min_y = h * TARGET_Y_BOUNDARY
+        max_y = h * (1 - TARGET_Y_BOUNDARY)
+
+        if min_x <= x <= max_x and min_y <= y <= max_y:
+            return True
+        
+        return False
 
 
     @property

@@ -3,9 +3,7 @@ warnings.filterwarnings("ignore")
 
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
-os.environ['CUDA_VISIBLE_DEVICES']='1'
-
+os.environ["TF_CUDNN_DETERMINISTIC"] = "1" 
 
 config = {
     'conv': [
@@ -30,7 +28,7 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=6, type=int)
+    parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
@@ -38,13 +36,13 @@ def parse_args():
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)      # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-    parser.add_argument('--ob_type', default=OB_TYPE_2, type=str)
+    parser.add_argument('--ob_type', default=OB_TYPE_1, type=str)
     
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
-    parser.add_argument('--init_steps', default=5_000, type=int)
+    parser.add_argument('--init_steps', default=50_000, type=int)
     parser.add_argument('--env_steps', default=300_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
@@ -81,9 +79,9 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_model_freq', default=500_000, type=int)
-    parser.add_argument('--load_model', default=-1, type=int)
+    parser.add_argument('--load_model', default=300000, type=int)
 
     parser.add_argument('--img_aug_path', default='', type=str)
     parser.add_argument('--buffer_save_path', default='', type=str) # ./buffers/
@@ -112,10 +110,9 @@ def main(seed=-1):
     args.start_episode, args.start_step = 0, 0
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.ob_type}_Dist'
+    args.name = f'{args.env_name}_{args.ob_type}_RT'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
-    print(args.work_dir)
 
     if os.path.exists(args.work_dir):
         inp = input('The work directory already exists. ' +
@@ -181,13 +178,11 @@ def main(seed=-1):
     first_step = True
 
     while env.total_steps < args.env_steps:
-        t1 = time.time()
-        if env.total_steps < args.init_steps:
-            action = (np.random.random(args.action_shape) * 2) - 1
-        else:
-            action = agent.sample_actions(state)
-        t2 = time.time()
+        action = agent.sample_actions(state)
+
         next_state, reward, done, info = env.step(action)
+
+        time.sleep(0.050)
 
         # if env.total_steps > args.init_steps:
         # time.sleep(0.2)
@@ -253,11 +248,11 @@ if __name__ == '__main__':
     
     from jsac.envs.isaac_create_reacher.create_env import CreateReacherEnv
     env_c = CreateReacherEnv('RLC/JSAC/jsac/envs/isaac_create_reacher/create_arena.usd', 
-                        headless=True, 
+                        headless=False, 
                         image_width=160, 
                         image_height=90,
-                        ob_type=OB_TYPE_2,
+                        ob_type=OB_TYPE_1,
                         randomize_target_pos=True)
     
-    for i in range(6, 11):
+    for i in range(2, 5):
         main(seed=i)

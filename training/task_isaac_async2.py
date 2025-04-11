@@ -4,8 +4,7 @@ warnings.filterwarnings("ignore")
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
-os.environ['CUDA_VISIBLE_DEVICES']='1'
-
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 
 config = {
     'conv': [
@@ -115,7 +114,6 @@ def main(seed=-1):
     args.name = f'{args.env_name}_{args.ob_type}_Dist'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
-    print(args.work_dir)
 
     if os.path.exists(args.work_dir):
         inp = input('The work directory already exists. ' +
@@ -259,5 +257,5 @@ if __name__ == '__main__':
                         ob_type=OB_TYPE_2,
                         randomize_target_pos=True)
     
-    for i in range(6, 11):
+    for i in range(6):
         main(seed=i)
