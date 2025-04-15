@@ -194,8 +194,8 @@ def main(seed=-1, env_name=None):
         sync_queue = None
         agent = SACRADAgent(vars(args)) 
     else:
-        sync_queue = mp.Queue()
-        agent = AsyncSACRADAgent(vars(args), sync_queue)
+        sync_queues = (mp.Queue(), mp.Queue())
+        agent = AsyncSACRADAgent(vars(args), sync_queues)
 
     update_paused = True
     pause_for_update = True
@@ -203,7 +203,6 @@ def main(seed=-1, env_name=None):
     state = env.reset(create_vid=False)
     
     first_step = True
-
     while env.total_steps < args.env_steps:
         t1 = time.time()
         if env.total_steps < args.init_steps + 100:
@@ -232,13 +231,14 @@ def main(seed=-1, env_name=None):
                 agent.resume_update()
                 update_paused = False
                 if pause_for_update:
+                    sync_queues[0].put(1)
                     time.sleep(30)
                     pause_for_update = False
 
 
         if not update_paused and env.total_steps >= args.init_steps and env.total_steps % args.update_every == 0:
-            if sync_queue:
-                sync_queue.put(1)
+            if sync_queues:
+                sync_queues[0].put(1)
             update_infos = agent.update()
             if update_infos is not None and env.total_steps % args.log_every == 0:
                 for update_info in update_infos:
