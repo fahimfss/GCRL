@@ -37,7 +37,7 @@ class AverageMeter(object):
     def __init__(self):
         self._sum = 0
         self._count = 0
-        self._value = 0
+        self._value = 0 
         
     def update_average(self, value, n=1):
         self._sum += value
