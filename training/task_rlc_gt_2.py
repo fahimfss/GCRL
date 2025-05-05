@@ -31,11 +31,11 @@ config = {
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 2],
-        [64, 64, 3, 2], 
+        [32, 64, 3, 1],
+        [64, 64, 3, 1],
     ],
     
-    'latent_dim': 128,
+    'latent_dim': 64,
 
     'mlp': [1024, 1024],
 }
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)   # FrankaEnv-v1
     parser.add_argument('--task_name', default='gt', type=str)
     parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
     parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
@@ -352,7 +352,9 @@ def run(seed):
     dir = args.work_dir
     params_path = os.path.join(dir, 'params.pkl') 
     with open(params_path, 'wb') as f: 
-        f.write(flax.serialization.to_bytes(params))  
+        f.write(flax.serialization.to_bytes(params)) 
+
+    eval(args, params)
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')

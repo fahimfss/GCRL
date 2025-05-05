@@ -32,11 +32,11 @@ config = {
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 2],
-        [64, 64, 3, 2], 
+        [32, 64, 3, 1],
+        [64, 64, 3, 1],
     ],
     
-    'latent_dim': 128,
+    'latent_dim': 64,
 
     'mlp': [1024, 1024],
 }
@@ -127,7 +127,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.classifier}'
+    args.name = f'{args.env_name}_{args.classifier}_LN'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -345,9 +345,10 @@ def eval(args, params):
 if __name__ == '__main__':
     mp.set_start_method('spawn')
     args, params = main() 
-    eval(args, params)
     
     dir = args.work_dir
     params_path = os.path.join(dir, 'params.pkl') 
     with open(params_path, 'wb') as f: 
         f.write(flax.serialization.to_bytes(params)) 
+        
+    eval(args, params)

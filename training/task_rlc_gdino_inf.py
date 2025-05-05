@@ -14,6 +14,7 @@ os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='.10'
 
 from jsac.helpers.logger import Logger
+from jsac.helpers.eval import start_eval_process
 from jsac.envs.rl_chemist.env import RLC_Env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
@@ -31,20 +32,14 @@ config = {
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 1],
-        [64, 64, 3, 1],
+        [32, 64, 3, 2],
+        [64, 64, 3, 2], 
     ],
     
-    'latent_dim': 64,
+    'latent_dim': 128,
 
     'mlp': [1024, 1024],
 }
-
-GOALTYPE_MASK = "G1_Mask"
-GOALTYPE_ONE_HOT = "G2_OH"
-GOALTYPE_3D = "G3_3d"
-GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -53,22 +48,22 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
-    parser.add_argument('--task_name', default='gt', type=str)
-    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
-    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
+    parser.add_argument('--env_name', default='UR10eEnv-v0', type=str)
+    parser.add_argument('--task_name', default='gdino_sync_franka', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--step_time', default=0.0, type=float) 
-    parser.add_argument('--episode_steps', default=150, type=int)
+    parser.add_argument('--classifier', default='gdino', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
+    parser.add_argument('--step_time', default=0.0, type=float)
+    parser.add_argument('--episode_steps', default=150, type=int) 
+    parser.add_argument('--digital_curtain', default=True, action='store_true')
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=400_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -132,53 +127,11 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
+    args.name = f'{args.env_name}_{args.classifier}_NO_LN'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
-
-    if os.path.exists(args.work_dir):
-        inp = input('The work directory already exists. ' +
-                    'Please select one of the following: \n' +  
-                    '  1) Press Enter to resume the run.\n' + 
-                    '  2) Press X to remove the previous work' + 
-                    ' directory and start a new run.\n' + 
-                    '  3) Press any other key to exit.\n')
-        if inp == 'X' or inp == 'x':
-            shutil.rmtree(args.work_dir)
-            print('Previous work dir removed.')
-        elif inp == '':
-            pass
-        else:
-            exit(0)
-
-    make_dir(args.work_dir)
-
-    if args.buffer_save_path:
-        if args.buffer_save_path == ".":
-            args.buffer_save_path = os.path.join(args.work_dir, 'buffers')
-        make_dir(args.buffer_save_path)
-    
-    if args.buffer_load_path == ".":
-        args.buffer_load_path = os.path.join(args.work_dir, 'buffers')
-
-    args.model_dir = os.path.join(args.work_dir, 'checkpoints') 
-    if args.save_model:
-        make_dir(args.model_dir)
-        
-    # args.video_dir = os.path.join(args.work_dir, 'videos') 
-    # make_dir(args.video_dir)
         
     args.net_params = config
-
-    if args.save_wandb:
-        wandb_project_name = f'{args.name}'
-        wandb_run_name=f'seed_{args.seed}'
-        L = Logger(args.work_dir, args.xtick, vars(args), 
-                   args.save_tensorboard, args.save_wandb, wandb_project_name, 
-                   wandb_run_name, args.start_step > 1)
-    else:
-        L = Logger(args.work_dir, args.xtick, vars(args), 
-                   args.save_tensorboard, args.save_wandb)
 
     step_time = None
     if args.step_time > 0:
@@ -186,12 +139,11 @@ def main(seed=-1, env_name=None):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height, 
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
+                   args.image_height,
+                   classifier=args.classifier,
                    step_time=step_time,
-                   ofd_index=args.seed)
-    
+                   ofd_index=args.seed,
+                   digital_curtain=args.digital_curtain)
     env = WrappedEnv(env, args.episode_steps)
 
     set_seed_everywhere(seed=args.seed)
@@ -201,89 +153,10 @@ def main(seed=-1, env_name=None):
     args.action_shape = env.action_space.shape
     args.env_action_space = env.action_space
     
-    print(f'Image shape: {args.image_shape}')
-    print(f'Proprioception shape: {args.proprioception_shape}')
-    print(f'Action shape: {args.action_shape}')
-
-    if args.sync_mode:
-        sync_queue = None
-        agent = SACRADAgent(vars(args)) 
-    else:
-        sync_queues = (mp.Queue(), mp.Queue())
-        agent = AsyncSACRADAgent(vars(args), sync_queues)
-        
-    update_paused = True
-    state = env.reset(create_vid=False)
-    first_step = True
-
-    while env.total_steps < args.env_steps:
-        t1 = time.time()
-        if env.total_steps < args.init_steps + 100:
-            action = np.random.uniform(-1, 1, args.action_shape[-1])
-        else:
-            action = agent.sample_actions(state)
-        t2 = time.time()
-        next_state, reward, done, info = env.step(action) 
-        t3 = time.time()
-
-        mask = 1.0 if not done or 'truncated' in info else 0.0
-        
-        agent.add(state, action, reward, next_state, mask, first_step)
-        first_step = False
-        state = next_state
-
-        if done or 'truncated' in info: 
-            state = env.reset(create_vid=False)
-            first_step = True
-            info['tag'] = 'train'
-            info['elapsed_time'] = time.time() - task_start_time
-            info['dump'] = True
-            L.push(info)
-
-        if env.total_steps >= args.init_steps and env.total_steps % args.update_every == 0:
-            if not args.sync_mode and update_paused: 
-                agent.resume_update()
-            if not update_paused and sync_queues:
-                sync_queues[1].get(timeout=300)
-            if sync_queues:
-                sync_queues[0].put(1)
-                update_paused = False
-            update_infos = agent.update()
-            if update_infos is not None and env.total_steps % args.log_every == 0:
-                for update_info in update_infos:
-                    update_info['action_sample_time'] = (t2 - t1) * 1000
-                    update_info['env_time'] = (t3 - t2) * 1000
-                    update_info['step'] = env.total_steps
-                    update_info['tag'] = 'train'
-                    update_info['dump'] = False
-
-                    L.push(update_info)
-
-        if env.total_steps % args.xtick == 0:
-            L.plot()
-
-        if args.save_model and env.total_steps % args.save_model_freq == 0 and \
-            env.total_steps < args.env_steps:
-            agent.checkpoint(env.total_steps)
-
-    if not args.sync_mode:
-        agent.pause_update()
-    if args.save_model:
-        agent.checkpoint(env.total_steps)
-        
-    L.plot()
-    L.close()
-    env.close()
-    
-    actor_params = agent.get_actor_params()
-    agent.close()
-
-    end_time = time.time()
-    print(f'\nFinished in {end_time - task_start_time}s')
-    return args, actor_params
+    return args
 
 
-def eval(args, params):
+def eval(args):
     step_time = None
     if args.step_time > 0:
         step_time = args.step_time
@@ -291,12 +164,12 @@ def eval(args, params):
     env = RLC_Env(args.env_name, 
                    args.image_history, 
                    args.image_width, 
-                   args.image_height, 
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
+                   args.image_height,
+                   classifier=args.classifier,
                    step_time=step_time,
                    ofd_index=args.seed,
-                   env_mode="eval_ofd")
+                   env_mode="eval_ofd",
+                   digital_curtain=args.digital_curtain)
     
     env = WrappedEnv(env, args.episode_steps)
 
@@ -316,8 +189,13 @@ def eval(args, params):
                                       jnp.float32)
     
     rng, key1, key2 = random.split(rng, 3)
-    actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
- 
+    params = actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
+
+    actor_path = os.path.join(args.work_dir, 'params.pkl') 
+    
+    with open(actor_path, 'rb') as f: 
+        params = flax.serialization.from_bytes(params, f.read())
+
     num_episods_per_object = 25
     for object_id in range(20): 
         stats={'object_id': object_id}
@@ -348,11 +226,6 @@ def eval(args, params):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    args, params = main() 
-    
-    dir = args.work_dir
-    params_path = os.path.join(dir, 'params.pkl') 
-    with open(params_path, 'wb') as f: 
-        f.write(flax.serialization.to_bytes(params)) 
-
-    eval(args, params)
+    args = main() 
+        
+    eval(args)

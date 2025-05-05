@@ -4,19 +4,17 @@ warnings.filterwarnings("ignore")
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
-os.environ['CUDA_VISIBLE_DEVICES']='1'
-
 
 config = {
     'conv': [
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 2],
-        [64, 64, 3, 2], 
+        [32, 64, 3, 1],
+        [64, 64, 3, 1],
     ],
     
-    'latent_dim': 128,
+    'latent_dim': 64,
 
     'mlp': [1024, 1024],
 }
@@ -38,7 +36,7 @@ def parse_args():
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)      # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-    parser.add_argument('--ob_type', default=OB_TYPE_2, type=str)
+    parser.add_argument('--ob_type', default=OB_TYPE_1, type=str)
     
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
@@ -252,12 +250,11 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     
     from jsac.envs.isaac_create_reacher.create_env import CreateReacherEnv
-    env_c = CreateReacherEnv('RLC/JSAC/jsac/envs/isaac_create_reacher/create_arena.usd', 
+    env_c = CreateReacherEnv('/home/fshahri1/projects/aip-ashique/fshahri1/RLC/JSAC/jsac/envs/isaac_create_reacher/create_arena.usd', 
                         headless=True, 
                         image_width=160, 
                         image_height=90,
-                        ob_type=OB_TYPE_2,
+                        ob_type=OB_TYPE_1,
                         randomize_target_pos=True)
     
-    for i in range(6, 11):
-        main(seed=i)
+    main()
