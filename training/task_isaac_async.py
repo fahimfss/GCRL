@@ -13,8 +13,11 @@ config = {
         [32, 32, 5, 2],
         [32, 64, 3, 1],
         [64, 64, 3, 1],
+        [32, 64, 3, 1],
+        [64, 64, 3, 1],
     ],
     
+    'latent_dim': 64,
     'latent_dim': 64,
 
     'mlp': [1024, 1024],
@@ -251,12 +254,11 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     
     from jsac.envs.isaac_create_reacher.create_env import CreateReacherEnv
-    env_c = CreateReacherEnv('RLC/JSAC/jsac/envs/isaac_create_reacher/create_arena.usd', 
+    env_c = CreateReacherEnv('/home/fshahri1/projects/aip-ashique/fshahri1/RLC/JSAC/jsac/envs/isaac_create_reacher/create_arena.usd', 
                         headless=True, 
                         image_width=160, 
                         image_height=90,
                         ob_type=OB_TYPE_3,
                         randomize_target_pos=True)
     
-    for i in range(6, 11):
-        main(seed=i)
+    main()

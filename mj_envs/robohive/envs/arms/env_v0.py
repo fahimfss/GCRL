@@ -744,10 +744,12 @@ class EnvV0(env_base_0.MujocoEnv):
         y_intervals = self.y_intervals
         z_intervals = self.z_intervals
         pts = [np.array(self.create_points(xmin, xmax, ymin, ymax, zmin, zmax), dtype=np.float64) for (xmin, xmax), (ymin, ymax), (zmin, zmax) in zip(x_intervals, y_intervals, z_intervals)]
-        for i in range(4):
-            franka_body_sid = self.sim.model.site_name2id(f'bsite{i+1}')
-            franka_site_pos = np.array(self.sim.data.site_xpos[franka_body_sid], dtype=np.float64)
-            pts.append(franka_site_pos)
+        
+        if self.robot_name == 'franka':
+            for i in range(4):
+                franka_body_sid = self.sim.model.site_name2id(f'bsite{i+1}')
+                franka_site_pos = np.array(self.sim.data.site_xpos[franka_body_sid], dtype=np.float64)
+                pts.append(franka_site_pos)
         self.excluded_points = np.vstack(pts).astype(np.float64)
         print('excluded_points shape: ', self.excluded_points.shape)
     

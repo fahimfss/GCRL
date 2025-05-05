@@ -140,44 +140,47 @@ class BaseAgent:
                                 first_step))
 
     def update(self):
-        self._update_step += 1
+        try:
+            self._update_step += 1
 
-        t1 = time.time()
-        
-        if self._sync_queues:
-            self._sync_queues[0].get(timeout=300)
-         
-        batch = self._replay_buffer.sample()
-                
-        self._rng, actor, critic, critic_target_params, temp, info = update_jit(
-            self._rng,
-            self._actor,
-            self._critic,
-            self._critic_target_params,
-            self._temp,
-            batch,
-            self._discount,
-            self._critic_tau,
-            self._target_entropy,
-            self._update_step % self._actor_update_freq == 0,
-            self._update_step % self._critic_target_update_freq == 0,
-            self._num_critic_updates)
+            t1 = time.time()
 
-        jax.block_until_ready(actor.params)
-        self._actor = actor
-        self._critic = critic
-        self._critic_target_params = critic_target_params
-        self._temp = temp
+            if self._sync_queues:
+                self._sync_queues[0].get(timeout=300)
+            
+            batch = self._replay_buffer.sample()
+                    
+            self._rng, actor, critic, critic_target_params, temp, info = update_jit(
+                self._rng,
+                self._actor,
+                self._critic,
+                self._critic_target_params,
+                self._temp,
+                batch,
+                self._discount,
+                self._critic_tau,
+                self._target_entropy,
+                self._update_step % self._actor_update_freq == 0,
+                self._update_step % self._critic_target_update_freq == 0,
+                self._num_critic_updates)
 
-        t2 = time.time()
+            jax.block_until_ready(actor.params)
+            self._actor = actor
+            self._critic = critic
+            self._critic_target_params = critic_target_params
+            self._temp = temp
 
-        info['update_time'] = (t2 - t1) * 1000
-        info['num_updates'] = self._update_step
-        
-        if self._sync_queues:
-            self._sync_queues[1].put(1)
+            t2 = time.time()
 
-        return [info]
+            info['update_time'] = (t2 - t1) * 1000
+            info['num_updates'] = self._update_step
+            
+            if self._sync_queues:
+                self._sync_queues[1].put(1)
+
+            return [info]
+        except:
+            return []
 
     def _load_model_fnc(self):
         model_dir = os.path.join(self._model_dir, str(self._load_model)) 
@@ -374,7 +377,8 @@ class AsyncSACRADAgent(BaseAgent):
 
             info = super().update()
 
-            self._update_queue.put(info[0])
+            if len(info) > 0:
+                self._update_queue.put(info[0])
             if self._update_step % self._actor_sync_freq == 0:
                 self._actor_queue.put(self._actor.params)        
 

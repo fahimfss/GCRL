@@ -10,11 +10,12 @@ import numpy as np
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 # os.environ['CUDA_VISIBLE_DEVICES']='0'
-os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
+# os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
 # os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='.10'
 
 from jsac.helpers.logger import Logger
-from jsac.envs.rl_chemist.env import RLC_Env
+from jsac.helpers.eval import start_eval_process
+from jsac.envs.franka_rw.env import franka_env
 from jsac.algo.agent import SACRADAgent, AsyncSACRADAgent
 from jsac.helpers.utils import MODE, make_dir, set_seed_everywhere, WrappedEnv
 
@@ -40,35 +41,27 @@ config = {
     'mlp': [1024, 1024],
 }
 
-GOALTYPE_MASK = "G1_Mask"
-GOALTYPE_ONE_HOT = "G2_OH"
-GOALTYPE_3D = "G3_3d"
-GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS"
-
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=6, type=int)
+    parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
-    
-    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
-    parser.add_argument('--task_name', default='gt', type=str)
-    parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
-    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
+
+    parser.add_argument('--task_name', default='franka_gdino_rw', type=str)
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
-    parser.add_argument('--step_time', default=0.0, type=float) 
-    parser.add_argument('--episode_steps', default=150, type=int)
+    parser.add_argument('--dt', default=0.15, type=float)
+    parser.add_argument('--classifier', default='gdino', type=str)
+    parser.add_argument('--episode_steps', default=100, type=int) 
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=100_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=100_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -105,8 +98,8 @@ def parse_args():
     parser.add_argument('--xtick', default=10_000, type=int)
     parser.add_argument('--save_wandb', default=False, action='store_true')
 
-    parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_model_freq', default=500_000, type=int)
+    parser.add_argument('--save_model', default=True, action='store_true')
+    parser.add_argument('--save_model_freq', default=25_000, type=int)
     parser.add_argument('--load_model', default=-1, type=int)
     parser.add_argument('--start_step', default=0, type=int)
     parser.add_argument('--start_episode', default=0, type=int)
@@ -130,9 +123,8 @@ def main(seed=-1, env_name=None):
 
     if not args.sync_mode:
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
-
-    sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
+ 
+    args.name = f'{args.task_name}'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
@@ -165,8 +157,8 @@ def main(seed=-1, env_name=None):
     if args.save_model:
         make_dir(args.model_dir)
         
-    # args.video_dir = os.path.join(args.work_dir, 'videos') 
-    # make_dir(args.video_dir)
+    args.video_dir = os.path.join(args.work_dir, 'videos') 
+    make_dir(args.video_dir)
         
     args.net_params = config
 
@@ -180,18 +172,11 @@ def main(seed=-1, env_name=None):
         L = Logger(args.work_dir, args.xtick, vars(args), 
                    args.save_tensorboard, args.save_wandb)
 
-    step_time = None
-    if args.step_time > 0:
-        step_time = args.step_time
-    env = RLC_Env(args.env_name, 
-                   args.image_history, 
-                   args.image_width, 
-                   args.image_height, 
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
-                   step_time=step_time,
-                   ofd_index=args.seed)
-    
+    env = franka_env(args.seed, 
+                     args.classifier,
+                     image_history=args.image_history, 
+                     image_width=args.image_width,
+                     image_height=args.image_height)
     env = WrappedEnv(env, args.episode_steps)
 
     set_seed_everywhere(seed=args.seed)
@@ -211,11 +196,13 @@ def main(seed=-1, env_name=None):
     else:
         sync_queues = (mp.Queue(), mp.Queue())
         agent = AsyncSACRADAgent(vars(args), sync_queues)
-        
-    update_paused = True
-    state = env.reset(create_vid=False)
-    first_step = True
 
+    update_paused = True
+    pause_for_update = True
+    time.sleep(5)
+    state = env.reset(create_vid=False)
+    
+    first_step = True
     while env.total_steps < args.env_steps:
         t1 = time.time()
         if env.total_steps < args.init_steps + 100:
@@ -240,14 +227,18 @@ def main(seed=-1, env_name=None):
             info['dump'] = True
             L.push(info)
 
-        if env.total_steps >= args.init_steps and env.total_steps % args.update_every == 0:
-            if not args.sync_mode and update_paused: 
+            if update_paused and env.total_steps >= args.init_steps:
                 agent.resume_update()
-            if not update_paused and sync_queues:
-                sync_queues[1].get(timeout=300)
+                update_paused = False
+                if pause_for_update:
+                    sync_queues[0].put(1)
+                    time.sleep(30)
+                    pause_for_update = False
+
+
+        if not update_paused and env.total_steps >= args.init_steps and env.total_steps % args.update_every == 0:
             if sync_queues:
                 sync_queues[0].put(1)
-                update_paused = False
             update_infos = agent.update()
             if update_infos is not None and env.total_steps % args.log_every == 0:
                 for update_info in update_infos:
@@ -274,85 +265,13 @@ def main(seed=-1, env_name=None):
     L.plot()
     L.close()
     env.close()
-    
-    actor_params = agent.get_actor_params()
     agent.close()
 
     end_time = time.time()
     print(f'\nFinished in {end_time - task_start_time}s')
-    return args, actor_params
+    return args
 
-
-def eval(args, params):
-    step_time = None
-    if args.step_time > 0:
-        step_time = args.step_time
-    
-    env = RLC_Env(args.env_name, 
-                   args.image_history, 
-                   args.image_width, 
-                   args.image_height, 
-                   goal_type=args.goal_type,
-                   reward_mode=args.reward_mode,
-                   step_time=step_time,
-                   ofd_index=args.seed,
-                   env_mode="eval_ofd")
-    
-    env = WrappedEnv(env, args.episode_steps)
-
-    image_shape = env.image_space.shape 
-    proprioception_shape = env.proprioception_space.shape
-    action_shape = env.action_space.shape
-    env_action_space = env.action_space
-
-    rng = jax.random.PRNGKey(0)
-    rng, actor = init_inference_actor(rng, 
-                                      image_shape, 
-                                      proprioception_shape, 
-                                      config, 
-                                      action_shape[-1], 
-                                      False, 
-                                      'img_prop', 
-                                      jnp.float32)
-    
-    rng, key1, key2 = random.split(rng, 3)
-    actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
- 
-    num_episods_per_object = 25
-    for object_id in range(20): 
-        stats={'object_id': object_id}
-        dones=[]
-        for episode in range(num_episods_per_object):
-            state = env.reset(object_id=object_id)  
-            while True: 
-                rng, action = sample_actions(rng, 
-                                            actor.apply, 
-                                            params, 
-                                            state, 
-                                            'img_prop', 
-                                            True)
-
-                action = np.asarray(action).clip(-1, 1)
-                state, reward, done, info = env.step(action) 
-                if done or 'truncated' in info: 
-                    if done:
-                        dones.append(1)
-                    else:
-                        dones.append(0)
-                    break
-                
-        stats['dones'] = dones
-        with open(f'{args.work_dir}/eval_ofd_logs.txt', 'a') as f:
-            f.write(str(stats) + '\n')
-                
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    args, params = main() 
-    
-    dir = args.work_dir
-    params_path = os.path.join(dir, 'params.pkl') 
-    with open(params_path, 'wb') as f: 
-        f.write(flax.serialization.to_bytes(params)) 
-
-    eval(args, params)
+    main() 
