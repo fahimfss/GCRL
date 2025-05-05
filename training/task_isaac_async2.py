@@ -114,6 +114,7 @@ def main(seed=-1):
     args.name = f'{args.env_name}_{args.ob_type}_Dist'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
+    print(args.work_dir)
 
     if os.path.exists(args.work_dir):
         inp = input('The work directory already exists. ' +
