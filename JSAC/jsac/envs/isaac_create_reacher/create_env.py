@@ -10,7 +10,7 @@ import random
 
 OB_TYPE_1 = "MASK"
 OB_TYPE_2 = "OH"
-OB_TYPE_3 = "MASK_OH"
+OB_TYPE_3 = "3d_position"
 
 TARGET_X_BOUNDARY = 0.0
 TARGET_Y_BOUNDARY = 0.0
@@ -55,14 +55,14 @@ class CreateReacherEnv(gymnasium.Env):
 
         self._channel_axis = -1
         self.ob_type = ob_type
-        if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_1:
             channels = 4
         else:
             channels = 3
         
         self._image_shape = (image_height, image_width, image_stack * channels)
 
-        self._action_history = 10
+        self._action_history = 15
         self._image_buffer = deque([], maxlen=image_stack)
         self._action_buffer = deque([], maxlen=self._action_history)
 
@@ -212,7 +212,7 @@ class CreateReacherEnv(gymnasium.Env):
         
         self.get_target_size(img)
         
-        if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_1:
             img = np.concatenate([img, self.latest_mask], axis=-1)
         
         img = cv2.resize(img, (self.image_width, self.image_height))
@@ -233,8 +233,10 @@ class CreateReacherEnv(gymnasium.Env):
         orientation = quat_to_euler_angles(self._create._articulation_view.get_world_poses()[1][0], True)
         orientation = orientation[:-1] / 180
         
-        if self.ob_type == OB_TYPE_2 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_2:
             proprioception = np.concatenate((last_actions, self._target_oh[self._target_no]))
+        elif self.ob_type == OB_TYPE_3:
+            proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
         else:
             proprioception = last_actions
         # dof_names = self._create._articulation_view._dof_names
@@ -290,7 +292,7 @@ class CreateReacherEnv(gymnasium.Env):
         else:
             reward = -dist
         
-        if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_1:
             # mask = cv2.cvtColor(self.latest_mask, cv2.COLOR_GRAY2RGB)
             # cv2.imshow("RGB + Mask", np.hstack([img, mask]))
             # cv2.waitKey(60)
@@ -323,8 +325,10 @@ class CreateReacherEnv(gymnasium.Env):
         
         last_actions = np.array(self._action_buffer).reshape(self._action_history * 2)
         
-        if self.ob_type == OB_TYPE_2 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_2:
             proprioception = np.concatenate((last_actions, self._target_oh[self._target_no]))
+        elif self.ob_type == OB_TYPE_3:
+            proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
         else:
             proprioception = last_actions
         
@@ -348,7 +352,7 @@ class CreateReacherEnv(gymnasium.Env):
         # mask = cv2.dilate(mask, kernel, iterations=2)
         # mask = cv2.erode(mask, kernel, iterations=2)
         
-        if self.ob_type == OB_TYPE_1 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_1:
             self.latest_mask = np.expand_dims(mask, axis=-1)
         
         target_size = np.sum(mask/255.) / mask.size
@@ -379,9 +383,13 @@ class CreateReacherEnv(gymnasium.Env):
 
     @property
     def proprioception_space(self):
-        if self.ob_type == OB_TYPE_2 or self.ob_type == OB_TYPE_3:
+        if self.ob_type == OB_TYPE_2:
             low = np.array( self._v_w_low * self._action_history + [0., 0., 0., 0.])
             high = np.array( self._v_w_high * self._action_history + [1., 1., 1., 1.]) 
+            return Box(low=low, high=high)
+        elif self.ob_type == OB_TYPE_3:
+            low = np.array( self._v_w_low * self._action_history + [-2., -2., -2.])
+            high = np.array( self._v_w_high * self._action_history + [2., 2., 2.]) 
             return Box(low=low, high=high)
         else:
             low = np.array(self._v_w_low * self._action_history)
