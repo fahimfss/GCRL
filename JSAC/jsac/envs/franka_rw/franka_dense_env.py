@@ -54,13 +54,13 @@ T_ec = [[-6.69290020e-03,  9.97499486e-01, -6.95722171e-02,  5.92557060e-02],
         [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]
 
 OBJECT_POS = np.array([
-    [0.471, -0.127, 0.05], ## ITEM 1 [pear]  
-    [0.471, 0.176, 0.05],  ## ITEM 2 [mouse]
-    [0.726, 0.158, 0.05],  ## ITEM 3 [apple] 
-    [0.720, -0.123, 0.05], ## ITEM 4 [eyeglasses] 
+    [0.387, -0.211, 0.05], ## ITEM 1 [wireless mosue]  
+    [0.400, 0.227, 0.05],  ## ITEM 2 [baseball]
+    [0.738, 0.219, 0.05],  ## ITEM 3 [green pear] 
+    [0.738, -0.214, 0.05], ## ITEM 4 [eyeglasses] 
 ], dtype=np.float32)
 
-OBJECT_NAMES = ["green pear", "wireless mouse", "white baseball", "eyeglasses"]
+OBJECT_NAMES = ["wireless mosue", "baseball", "green pear", "eyeglasses"]
 
 
 class FrankaPanda_Visual_Reacher(gym.Env):

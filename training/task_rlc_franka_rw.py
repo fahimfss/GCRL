@@ -32,11 +32,11 @@ config = {
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 2],
-        [64, 64, 3, 2], 
+        [32, 64, 3, 1],
+        [64, 64, 3, 1],
     ],
     
-    'latent_dim': 128,
+    'latent_dim': 64,
 
     'mlp': [1024, 1024],
 }
@@ -44,7 +44,7 @@ config = {
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=0, type=int)
+    parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
 
