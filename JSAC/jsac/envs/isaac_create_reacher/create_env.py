@@ -11,6 +11,7 @@ import random
 OB_TYPE_1 = "MASK"
 OB_TYPE_2 = "OH"
 OB_TYPE_3 = "3d_position"
+OB_TYPE_4 = 'clip'
 
 TARGET_X_BOUNDARY = 0.0
 TARGET_Y_BOUNDARY = 0.0
@@ -59,6 +60,12 @@ class CreateReacherEnv(gymnasium.Env):
             channels = 4
         else:
             channels = 3
+            
+        if ob_type == OB_TYPE_4:
+            from pathlib import Path
+            emb_path = Path(__file__).with_name("embeddings_isaac.npy")
+            self.clip_emb=np.load(emb_path)
+            print(self.clip_emb.shape)
         
         self._image_shape = (image_height, image_width, image_stack * channels)
 
@@ -233,10 +240,13 @@ class CreateReacherEnv(gymnasium.Env):
         orientation = quat_to_euler_angles(self._create._articulation_view.get_world_poses()[1][0], True)
         orientation = orientation[:-1] / 180
         
+         
         if self.ob_type == OB_TYPE_2:
             proprioception = np.concatenate((last_actions, self._target_oh[self._target_no]))
         elif self.ob_type == OB_TYPE_3:
             proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
+        elif self.ob_type == OB_TYPE_4:
+            proprioception = np.concatenate((last_actions, self.clip_emb[self._target_no]))
         else:
             proprioception = last_actions
         # dof_names = self._create._articulation_view._dof_names
@@ -329,6 +339,8 @@ class CreateReacherEnv(gymnasium.Env):
             proprioception = np.concatenate((last_actions, self._target_oh[self._target_no]))
         elif self.ob_type == OB_TYPE_3:
             proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
+        elif self.ob_type == OB_TYPE_4:
+            proprioception = np.concatenate((last_actions, self.clip_emb[self._target_no]))
         else:
             proprioception = last_actions
         
@@ -390,6 +402,10 @@ class CreateReacherEnv(gymnasium.Env):
         elif self.ob_type == OB_TYPE_3:
             low = np.array( self._v_w_low * self._action_history + [-2., -2., -2.])
             high = np.array( self._v_w_high * self._action_history + [2., 2., 2.]) 
+            return Box(low=low, high=high)
+        elif self.ob_type == OB_TYPE_4:
+            low = np.array( self._v_w_low * self._action_history + ([-1.]*512))
+            high = np.array( self._v_w_high * self._action_history + ([1.]*512)) 
             return Box(low=low, high=high)
         else:
             low = np.array(self._v_w_low * self._action_history)

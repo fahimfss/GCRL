@@ -23,7 +23,17 @@ objects = {
     'object_20': 'red eyeglasses'
 }
 
-names = list(objects.values())
+
+objects_isaac = {    
+    'object_1': 'Magenta Square',
+    'object_2': 'Green Square',
+    'object_3': 'Red Square',
+    'object_4': 'Blue Square',
+}
+
+
+# names = list(objects.values())
+names = list(objects_isaac.values())
 print(names)
 
 
@@ -33,10 +43,12 @@ texts=names
 tokens=clip.tokenize(texts).to(device)
 with torch.no_grad():
  emb=model.encode_text(tokens).cpu().numpy()
-np.save("embeddings.npy",emb)
+# np.save("embeddings.npy",emb)
+np.save("embeddings_isaac.npy",emb)
 
 import numpy as np
-emb=np.load("embeddings.npy")
+# emb=np.load("embeddings.npy")
+emb=np.load("embeddings_isaac.npy")
 print(emb.shape)
 for i in range(20):
     print(emb[i, :5])
