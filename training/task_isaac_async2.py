@@ -24,6 +24,8 @@ config = {
 OB_TYPE_1 = "MASK"
 OB_TYPE_2 = "OH"
 OB_TYPE_3 = "3d_position"
+OB_TYPE_4 = 'clip'
+OB_TYPE_5 = 'target_state'
 
 def parse_args():
     import argparse
@@ -37,7 +39,7 @@ def parse_args():
     parser.add_argument('--image_height', default=90, type=int)     # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)      # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)     # Mode: img, img_prop
-    parser.add_argument('--ob_type', default=OB_TYPE_3, type=str)
+    parser.add_argument('--ob_type', default=OB_TYPE_5, type=str)
     
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
@@ -255,7 +257,7 @@ if __name__ == '__main__':
                         headless=True, 
                         image_width=160, 
                         image_height=90,
-                        ob_type=OB_TYPE_3,
+                        ob_type=OB_TYPE_5,
                         randomize_target_pos=True)
     
     for i in range(6):

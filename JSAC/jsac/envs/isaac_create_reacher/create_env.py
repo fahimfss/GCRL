@@ -12,6 +12,7 @@ OB_TYPE_1 = "MASK"
 OB_TYPE_2 = "OH"
 OB_TYPE_3 = "3d_position"
 OB_TYPE_4 = 'clip'
+OB_TYPE_5 = 'target_state'
 
 TARGET_X_BOUNDARY = 0.0
 TARGET_Y_BOUNDARY = 0.0
@@ -33,8 +34,8 @@ class CreateReacherEnv(gymnasium.Env):
                  rendering_dt = 0.06, 
                  headless=True, 
                  image_stack=3, 
-                 image_width=80, 
-                 image_height=60, 
+                 image_width=160, 
+                 image_height=90, 
                  ob_type=OB_TYPE_1,
                  randomize_target_pos=False,
                  reward_mode="distance"):  ## distance, mask_size
@@ -66,6 +67,12 @@ class CreateReacherEnv(gymnasium.Env):
             emb_path = Path(__file__).with_name("embeddings_isaac.npy")
             self.clip_emb=np.load(emb_path)
             print(self.clip_emb.shape)
+            
+        if ob_type == OB_TYPE_5:
+            from pathlib import Path
+            imgs_path = Path(__file__).with_name("images.npy")
+            self.target_states = np.load(imgs_path)
+            print(self.target_states.shape)
         
         self._image_shape = (image_height, image_width, image_stack * channels)
 
@@ -247,6 +254,10 @@ class CreateReacherEnv(gymnasium.Env):
             proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
         elif self.ob_type == OB_TYPE_4:
             proprioception = np.concatenate((last_actions, self.clip_emb[self._target_no]))
+        elif self.ob_type == OB_TYPE_5:
+            ts_img = self.target_states[self._target_no, :, :, :]
+            self._latest_image = np.concatenate([self._latest_image, ts_img], axis=-1) 
+            proprioception = last_actions
         else:
             proprioception = last_actions
         # dof_names = self._create._articulation_view._dof_names
@@ -341,6 +352,10 @@ class CreateReacherEnv(gymnasium.Env):
             proprioception = np.concatenate((last_actions, np.array(self._target_pos)))
         elif self.ob_type == OB_TYPE_4:
             proprioception = np.concatenate((last_actions, self.clip_emb[self._target_no]))
+        elif self.ob_type == OB_TYPE_5:
+            ts_img = self.target_states[self._target_no, :, :, :]
+            self._latest_image = np.concatenate([self._latest_image, ts_img], axis=-1) 
+            proprioception = last_actions
         else:
             proprioception = last_actions
         
@@ -391,7 +406,12 @@ class CreateReacherEnv(gymnasium.Env):
 
     @property
     def image_space(self):
-        return Box(low=0, high=255, shape=self._image_shape)
+        if self.ob_type == OB_TYPE_5:
+            shape=list(self._image_shape)
+            shape[-1] = shape[-1] + 3
+            return Box(low=0, high=255, shape=tuple(shape))
+        else:
+            return Box(low=0, high=255, shape=self._image_shape)
 
     @property
     def proprioception_space(self):
