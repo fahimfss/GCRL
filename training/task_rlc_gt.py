@@ -53,10 +53,10 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)
+    parser.add_argument('--env_name', default='UR10eEnv-v2', type=str)
     parser.add_argument('--task_name', default='gt', type=str)
     parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
-    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
+    parser.add_argument('--reward_mode', default="mask_size", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
@@ -64,11 +64,11 @@ def parse_args():
     parser.add_argument('--episode_steps', default=150, type=int)
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=250_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=300_000, type=int)
+    parser.add_argument('--env_steps', default=1_000_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
