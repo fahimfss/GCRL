@@ -53,10 +53,10 @@ def parse_args():
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
-    parser.add_argument('--env_name', default='UR10eEnv-v1', type=str)   # FrankaEnv-v1
+    parser.add_argument('--env_name', default='UR10eEnv-v2', type=str)   # FrankaEnv-v1
     parser.add_argument('--task_name', default='gt', type=str)
     parser.add_argument('--goal_type', default=GOALTYPE_MASK, type=str)
-    parser.add_argument('--reward_mode', default="distance", type=str)   # "distance", "mask_size"
+    parser.add_argument('--reward_mode', default="mask_size", type=str)   # "distance", "mask_size"
     parser.add_argument('--image_height', default=90, type=int)          # Mode: img, img_prop
     parser.add_argument('--image_width', default=160, type=int)          # Mode: img, img_prop     
     parser.add_argument('--image_history', default=3, type=int)          # Mode: img, img_prop
@@ -238,6 +238,8 @@ def main(seed=-1, env_name=None):
             info['tag'] = 'train'
             info['elapsed_time'] = time.time() - task_start_time
             info['dump'] = True
+            if reward > 5.0:
+                info['grasping'] = 1.0
             L.push(info)
 
         if env.total_steps >= args.init_steps and env.total_steps % args.update_every == 0:
@@ -354,7 +356,7 @@ def run(seed):
     with open(params_path, 'wb') as f: 
         f.write(flax.serialization.to_bytes(params)) 
 
-    eval(args, params)
+    # eval(args, params)
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
@@ -365,6 +367,6 @@ if __name__ == '__main__':
         p = mp.Process(target=run, args=(s,))
         p.start()
         processes.append(p)
-        time.sleep(600)
+        time.sleep(300)
     for p in processes:
         p.join()

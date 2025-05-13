@@ -56,7 +56,7 @@ def parse_args():
     parser.add_argument('--classifier', default='detic', type=str)       # "ground_truth", "gdino_sync", "gdino_async"
     parser.add_argument('--step_time', default=0.0, type=float)
     parser.add_argument('--episode_steps', default=150, type=int) 
-    parser.add_argument('--digital_curtain', default=False, action='store_true')
+    parser.add_argument('--digital_curtain', default=True, action='store_true')
 
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
@@ -127,7 +127,7 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.classifier}_LN'
+    args.name = f'{args.env_name}_{args.classifier}_DC'
 
     args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 

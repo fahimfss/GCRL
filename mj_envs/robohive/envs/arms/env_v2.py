@@ -77,15 +77,15 @@ class EnvV1(env_base_0.MujocoEnv):
                 "contact": 0.,
                 'penalty': 0.,
                 'mask_size': 0.,
-                "done": 10.,
+                "done": 0.,
             }
         else:
             weighted_reward_keys = {
                 "distance": 0., 
                 "contact": 0.,
-                'penalty': 1.1,
-                'mask_size': 1.,
-                "done": 10.,
+                'penalty': 1.,
+                'mask_size': 0.9,
+                "done": 0.,
             }
         
         self.objects = {
@@ -130,6 +130,7 @@ class EnvV1(env_base_0.MujocoEnv):
         self.right_touch = False
         self.right_touch_rewarded = False
         self.touch_count = 0
+        self.touch_rewards = 0
         
         super()._setup(obs_keys=self.obs_keys,
                        proprio_keys=self.proprio_keys,
@@ -224,12 +225,14 @@ class EnvV1(env_base_0.MujocoEnv):
             rwd_dict['done'] = done_2
             
         if self.left_touch and self.right_touch:
-            rwd_dict['dense'] += 1.0
+            self.touch_rewards += 0.5
+            if self.touch_rewards <= 2.6:
+                rwd_dict['dense'] += 0.5
             self.touch_count += 1
             if self.touch_count == 5:
                 last_pos = self.sim.data.qpos[:self.sim.model.nu].copy()
                 reset_qpos = self.sim.model.key_qpos[0].copy()
-                self.robot.move_to_pos(last_pos, reset_qpos, 30)
+                self.robot.move_to_pos(last_pos, reset_qpos, 100)
                 
                 this_model = self.sim.model
                 id_info = BodyIdInfo(this_model)
@@ -272,6 +275,7 @@ class EnvV1(env_base_0.MujocoEnv):
         self.right_touch = False
         self.right_touch_rewarded = False
         self.touch_count = 0
+        self.touch_rewards = 0
         
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
