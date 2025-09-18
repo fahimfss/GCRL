@@ -64,7 +64,7 @@
                       <!--camera name="end_effector_cam" pos=".06 0.0 0.01" quat="0 -0.7071 0.7071 0" fovy="65"/>-->
                       <geom class="visual" mesh="base" material="black"/>
                       <geom class="collision" mesh="base"/>
-                      <site name="pinch" pos="0 0 0.1" type="sphere" group="1" rgba=".9 0.9 0.9 1" size="0.001"/>
+                      <site name="pinch" pos="0 0 0.125" type="sphere" group="1" rgba=".9 0.9 0.9 0" size="0.001"/>
                       <!-- Right-hand side 4-bar linkage -->
                       <body name="right_driver" pos="0 0.0306011 0.054904">
                         <inertial mass="0.00899563" pos="2.96931e-12 0.0177547 0.00107314" quat="0.681301 0.732003 0 0"

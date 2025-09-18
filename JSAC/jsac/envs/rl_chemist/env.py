@@ -46,6 +46,7 @@ class RLC_Env(gym.Wrapper):
                                             ofd_index=ofd_index,
                                             step_time=step_time,
                                             classifier=classifier,
+                                            reward_mode=reward_mode,
                                             digital_curtain=digital_curtain))
             else:
                 super().__init__(gym.make(f'robohive.envs:{env_name}', 
@@ -204,10 +205,19 @@ class RLC_Env(gym.Wrapper):
         self._reset = True
         
         return (self._latest_image, prop)
+
+    
+    def add_green_rect_if_white(self, mask: np.ndarray) -> np.ndarray:
+        h, w = mask.shape[:2]
+        img = mask
+        if np.any(mask > 0):  # works for 3-channel or 1-channel masks
+            cv2.rectangle(img, (int(0.25*w), int(0.5*h)), (int(0.75*w)-1, h-1), (0,255,0), 2)
+        return img
     
     def add_frame_to_video_buffer(self, text, new_img, extra): 
         
-        if extra is not None:
+        if extra is not None: 
+            extra = self.add_green_rect_if_white(extra)
             frame = np.concatenate((new_img[:, :, 0:3], extra), axis=1)
         else:
             frame = new_img
@@ -230,7 +240,7 @@ class RLC_Env(gym.Wrapper):
         combined_image = np.vstack((frame, banner))
         # cv2.imshow("w1", combined_image)
         # cv2.waitKey(1)
-        self._video_buffer.append(combined_image) 
+        self._video_buffer.append(frame) 
 
 
     # def _save_video(self):
@@ -275,7 +285,7 @@ class RLC_Env(gym.Wrapper):
         output_path = os.path.join(self._video_path, vid_name)
  
         fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
-        fps = 30 
+        fps = 20 
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         try: 

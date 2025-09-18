@@ -11,12 +11,16 @@ from robohive.envs import env_base_0
 
 from robohive.utils.quat_math import mat2euler
 from robohive.envs.arms.python_api_2 import BodyIdInfo, get_touching_objects, ObjLabels
+from robohive.envs.arms.gdino import create_mask, g_dino_inference, async_g_dino_inference
+
+from groundingdino.util.inference import load_model
+from robohive.envs.arms.detic import Detic, detic_inference
 
 GOALTYPE_MASK = "G1_Mask"
 GOALTYPE_ONE_HOT = "G2_OH"
 GOALTYPE_3D = "G3_3d"
 GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS"
+GOALTYPE_TARGET_STATE = "G5_TS" 
 # MASK_SIZE_LIMIT = 30
 # MASK_SIZE_LIMIT_DIST = 30
 DISTANCE_THRESHOLD = 0.1
@@ -37,18 +41,21 @@ class EnvV1(env_base_0.MujocoEnv):
 
     def _setup(self,
                robot_site_name,
-               image_width=960,
-               image_height=540,
+               image_width=1280,
+               image_height=720,
                frame_skip = 20, 
                env_mode = "train",          # "train", "eval_ofd", "eval", "inference_1", "inference_3"
                reward_mode = "distance",   # "distance", "mask_size"
                goal_type = GOALTYPE_MASK,     
                ofd_index=0,
+               classifier = "gdino", 
                **kwargs,
         ):
 
+        print(reward_mode, classifier)
+
         self.grasp_sid = self.sim.model.site_name2id(robot_site_name) #robot part name
-        self.center_obj_range = np.array([[-0.175, 0.175], [0.29, 0.41]])
+        self.center_obj_range = np.array([[-0.125, 0.125], [0.26, 0.37]])
         self.IMAGE_WIDTH = image_width
         self.IMAGE_HEIGHT = image_height  
         self.cam_init = True
@@ -63,8 +70,19 @@ class EnvV1(env_base_0.MujocoEnv):
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.env_mode = env_mode
         self.reward_mode = reward_mode 
+        self.cf_time = 0
+        self.cf_step = 0
+        self.cf_error = 0
+        self.cf_num_accurate = 0
+        self.cf_accuracy = 0
+        self.gs = 0
+        self.epi_target_object_num = 0
+        self.digital_curtain = False
+
+        self.inference_type = "sync"
+        self.classifier = classifier 
         
-        print(f'Reward mode: {self.reward_mode}')
+        print(f'Reward mode: {self.reward_mode}, Classifier: {classifier}')
         
         self.target_name = "red apple"
         self.mask_size = 0  
@@ -77,16 +95,26 @@ class EnvV1(env_base_0.MujocoEnv):
                 "contact": 0.,
                 'penalty': 0.,
                 'mask_size': 0.,
-                "done": 5.,
+                "done": 0.,
             }
         else:
             weighted_reward_keys = {
                 "distance": 0., 
                 "contact": 0.,
                 'penalty': 1.,
-                'mask_size': 1.,
-                "done": 5.,
+                'mask_size': 1,
+                "done": 0.,
             }
+        
+        # self.objects = {
+        #     #site_name: object name, (width_scale, height_scale), (width_offset, height_offset)
+        #     'object_1': ('red apple', (1.25, 1.35), (0, -0.03)),
+        #     'object_2': ('green block', (1.1, 1.1), (0, -0.02)),
+        #     'object_3': ('chocolate donut', (1.1, 1.1), (0, 0)),
+        #     'object_4': ('yellow toy duck', (1.4, 1.3), (0, -0.02)),
+        #     'object_5': ('banana', (1.3, 1.7), (-0.02, 0)),
+        #     'object_6': ('white egg', (1, 1), (0, 0))
+        # }
         
         self.objects = {
             #site_name: object name, (width_scale, height_scale), (width_offset, height_offset)
@@ -111,30 +139,15 @@ class EnvV1(env_base_0.MujocoEnv):
             'object_19': ('teapot', (1.4, 1.3), (0, 0)),
             'object_20': ('eyeglasses', (1.4, 1.2), (0, 0))
         }
-        
-        self.ofd = {
-            0: [2, 1, 0, 11, 12],
-            1: [15, 18, 10, 13, 9],
-            2: [3, 16, 6, 5, 19],
-            3: [4, 14, 17, 7, 8],
-            4: [9, 4, 18, 13, 6],
-            5: [12, 2, 11, 5, 0],
-            6: [16, 17, 19, 7, 8],
-            7: [10, 15, 14, 1, 3],
-            8: [9, 5, 19, 11, 18],
-            9: [0, 16, 10, 14, 2],
-            10: [8, 13, 12, 17, 4],
-            11: [3, 1, 15, 6, 7],
-            12: [1, 5, 15, 16, 13],
-            13: [8, 7, 9, 6, 4],
-            14: [12, 19, 0, 18, 10],
-            15: [3, 17, 2, 14, 11],
-            16: [11, 6, 7, 16, 13],
-            17: [3, 4, 1, 14, 5],
-            18: [19, 18, 0, 9, 8],
-            19: [12, 17, 10, 2, 15]
-        } 
- 
+
+        if self.classifier == "gdino" and self.inference_type=="sync":
+            self.classifier_model = load_model("../GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py", 
+                                               "../GroundingDINO/asset/groundingdino_swinb_cogcoor.pth")
+        elif self.classifier == "detic":
+            # It is not implemented for async for now
+            vocabs = [v[0] for v in self.objects.values()]
+            self.classifier_model = Detic(vocabs)
+
         self.ofd_index = ofd_index
         print('ofd_index:', ofd_index)
 
@@ -157,34 +170,24 @@ class EnvV1(env_base_0.MujocoEnv):
             self.target_obj_num = kwargs['target_obj_num'] 
             kwargs.pop('target_obj_num')
 
-        if self.goal_type == GOALTYPE_MASK:
-            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 4), dtype=np.uint8) 
-            self.obs_keys = ['qp_robot', 'prev_action']
-            self.proprio_keys = self.obs_keys.copy()
-        elif self.goal_type == GOALTYPE_ONE_HOT:
-            self.oh_vec = np.array([0.0] * 20)
-            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
-            self.obs_keys = ['qp_robot', 'prev_action', 'one_hot']
-            self.proprio_keys = self.obs_keys.copy()
-        elif self.goal_type == GOALTYPE_3D:
+        self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 4), dtype=np.uint8) 
+        self.obs_keys = ['qp_robot', 'prev_action', 'touching_body']
+        self.proprio_keys = self.obs_keys.copy()
+
+        if self.goal_type == GOALTYPE_3D:
             self.target_3d_pos = np.array([0.0] * 3)
             self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
-            self.obs_keys = ['qp_robot', 'prev_action', '3d_pos']
+            self.obs_keys = ['qp_robot', 'prev_action', '3d_pos', 'touching_body']
             self.proprio_keys = self.obs_keys.copy()
-        elif self.goal_type == GOALTYPE_CLIP:
-            self.clip_embeddings = np.load('../mj_envs/robohive/envs/arms/gt_targets/embeddings.npy')
-            self.current_clip_embedding = self.clip_embeddings[0].copy()
-            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 3), dtype=np.uint8) 
-            self.obs_keys = ['qp_robot', 'prev_action', 'clip_embedding']
-            self.proprio_keys = self.obs_keys.copy()
-        elif self.goal_type == GOALTYPE_TARGET_STATE:
-            paths = [f'../mj_envs/robohive/envs/arms/gt_targets/{i}.png' for i in range(20)]
-            imgs = [cv.imread(p) for p in paths]
-            self.target_state_images = np.array(imgs)    
-            self.current_image = np.ones((self.IMAGE_HEIGHT, self.IMAGE_WIDTH, 6), dtype=np.uint8) 
-            self.obs_keys = ['qp_robot', 'prev_action']
-            self.proprio_keys = self.obs_keys.copy()
-            self.current_target_state_image = self.target_state_images[0]
+
+        ## Touch
+        self.left_touch = False
+        self.left_touch_rewarded = False
+        self.right_touch = False
+        self.right_touch_rewarded = False
+        self.touch_count = 0
+        self.touch_rewards = 0
+        self.both_touch = False
         
         super()._setup(obs_keys=self.obs_keys,
                        proprio_keys=self.proprio_keys,
@@ -205,15 +208,11 @@ class EnvV1(env_base_0.MujocoEnv):
         obs_dict['reach_err'] = sim.data.site_xpos[self.target_sid]-sim.data.site_xpos[self.grasp_sid]
         obs_dict['power_cost'] = sim.data.qvel.copy()*sim.data.qfrc_actuator.copy()
         obs_dict['mask_size'] = np.array([self.mask_size])  
-        
-        if self.goal_type == GOALTYPE_ONE_HOT:
-            obs_dict['one_hot'] = self.oh_vec
-        elif self.goal_type == GOALTYPE_3D:
+
+        if self.goal_type == GOALTYPE_3D:
             self.target_3d_pos = sim.data.site_xpos[self.target_sid]
             obs_dict['3d_pos'] = self.target_3d_pos
-        elif self.goal_type == GOALTYPE_CLIP: 
-            obs_dict['clip_embedding'] = self.current_clip_embedding
- 
+        
         self.current_observation = self.get_observation()
 
         this_model = sim.model
@@ -223,23 +222,34 @@ class EnvV1(env_base_0.MujocoEnv):
         touching_objects = set(get_touching_objects(this_model, this_data, id_info, self.target_site_name))
 
         obs_vec = self._obj_label_to_obs(touching_objects)
-        obs_dict["touching_body"] = obs_vec
+        obs_dict["touching_body"] = np.array(obs_vec)
 
         return obs_dict
 
     def _obj_label_to_obs(self, touching_body):
         # Function to convert touching body set to an binary observation vector
         # order follows the definition in python_api file
-        obs_vec = np.array([0, 0, 0])
+        obs_vec = np.array([0.0, 0.0])
+        self.left_touch = False
+        self.right_touch = False
         for i in touching_body:
             if i == ObjLabels.LEFT_GRIP:
-                obs_vec[0] += 1
+                obs_vec[0] = 1.0
+                self.left_touch = True
             elif i == ObjLabels.RIGHT_GRIP:
-                obs_vec[1] += 1
-            else:
-                obs_vec[2] += 1
+                obs_vec[1] = 1.0
+                self.right_touch = True
 
         return obs_vec
+    
+    def get_height(self):
+        model = self.sim.model
+        data = self.sim.data
+        body_ids = [model.body_name2id(name) for name in ["Lgrip/left_silicone_pad", "Rgrip/right_silicone_pad"]]
+        heights = [data.xpos[body_id][2] for body_id in body_ids]
+        height = sum(heights) / len(heights)
+        # print('Height: ', height)
+        return height
     
     def get_reward_dict(self, obs_dict):
         self.distance = np.linalg.norm(obs_dict['reach_err'], axis=-1)[0]
@@ -250,27 +260,43 @@ class EnvV1(env_base_0.MujocoEnv):
         mask_size_reward = np.array([self.calculate_img_reward(self.mask_size)])
         contact = np.array([np.sum(obs_dict["touching_body"][0][0][:2])])
         
-        if self.distance < DISTANCE_THRESHOLD and self._target_in_boundary:
-            done_1 = np.full((1,), True, dtype=np.bool_)
-            done_2 = True
-        else:
-            done_1 = np.full((1,), False, dtype=np.bool_)
-            done_2 = False
+        done_1 = np.full((1,), False, dtype=np.bool_)
+        done_2 = False
                 
         rwd_dict = collections.OrderedDict((
             ('distance',  self.distance),
             ('contact', contact),
-            ('penalty', np.array([-1])),  
+            ('penalty', np.array([-2])),  
             ('mask_size',  mask_size_reward),
             ('done', done_1),  
         )) 
-         
-        if self.env_mode == "train":
-            rwd_dict['dense'] = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
-        else:
-            rwd_dict['dense'] = 1.0 if done_2 else 0
-            rwd_dict['done'] = done_2
+ 
+        result = np.sum([wt*rwd_dict[key] for key, wt in self.rwd_keys_wt.items()], axis=0)
+        rwd_dict['dense'] = np.full(result.shape, -1.1, dtype=result.dtype) 
         
+        if self.left_touch and self.right_touch:
+            if not self.both_touch:
+                rwd_dict['dense'] += 10
+                self.initial_height = self.get_height()
+                self.target_height = self.initial_height + 0.3
+                self.both_touch = True
+
+            rwd_dict['dense'] += 0.1
+            height = self.get_height() 
+            if height - self.initial_height >= 0:
+                diff = self.target_height - height
+                if diff <= 0:
+                    rwd_dict['dense'] += 10
+                    rwd_dict['done'] = np.full((1,), True, dtype=np.bool_)
+                else:
+                    rwd_dict['dense'] += (1 - (diff * 3.3))
+        else:
+            if not self.both_touch:
+                if self.goal_type == GOALTYPE_3D:
+                    rwd_dict['dense'] -= self.distance
+                else:
+                    rwd_dict['dense'] += mask_size_reward - 1
+
         return rwd_dict
     
     def place_object(self, obj_name, reset_qpos, x_pos=None, y_pos=None, drop=False):
@@ -292,10 +318,21 @@ class EnvV1(env_base_0.MujocoEnv):
             else:
                 reset_qpos[object_qpos_adr] = x_pos
                 reset_qpos[object_qpos_adr + 1] = y_pos
+            
     
     def reset(self, reset_qpos=None, **kwargs): 
         print('min dist: ', self._min_dist)
         self._min_dist = 10000
+        
+        self.left_touch = False
+        self.left_touch_rewarded = False
+        self.right_touch = False
+        self.right_touch_rewarded = False
+        self.touch_count = 0
+        self.touch_rewards = 0
+        self.initial_height = 0
+        self.target_height = 0
+        self.both_touch = False
         
         self.prev_action = np.array([0] * self.sim.model.nu)
         self.current_mask = None
@@ -304,23 +341,15 @@ class EnvV1(env_base_0.MujocoEnv):
 
         self.mask_size_counter = 0 
         
-        ofd_items = self.ofd[self.ofd_index]
-        train_items = list(set(range(20)) - set(ofd_items))
-        
-        if self.env_mode == "train" or self.env_mode == "eval":
-            number = random.choice(train_items)
-        elif self.env_mode == "eval_ofd":
-            if 'object_id' in kwargs:
-                number = kwargs['object_id']
-                kwargs.pop('object_id')
-            else:
-                number = number = random.choice(list(range(20)))
-            print(f'Object Id: {number}')
-        else:
-            number = self.target_obj_num 
+        train_items = list(set(range(20)))
+        number = random.choice([0, 1, 2, 4, 5, 16])
+        if 'object_id' in kwargs:
+            number = kwargs['object_id']
+            kwargs.pop('object_id')
+
+        self.epi_target_object_num = number
              
         reset_qpos = self.sim.model.key_qpos[0].copy()
-        print('reset q pos', reset_qpos)
         
         self.target_name = self.TN[number] 
         self.target_site_name = self.TS[number] 
@@ -335,68 +364,31 @@ class EnvV1(env_base_0.MujocoEnv):
         
         self.target_sid = self.sim.model.site_name2id(self.target_site_name) 
  
-        if self.env_mode == "inference_1" or self.env_mode == "inference_3":
-            if self.env_mode == "inference_3":
-                other_indices = random.sample([i for i in range(20) if i != number], 2)
-                other_site_names = [self.TS[ind] for ind in other_indices]
-                print('other sites:', other_site_names)
-            else:
-                other_site_names = []
-            
-            for obj_name in self.TS:
-                if obj_name == self.target_site_name:
-                    x_pos = 0
-                    y_pos = 0.38
-
-                    self.place_object(obj_name, reset_qpos, x_pos, y_pos)
-                    
-                    self.target_x = x_pos
-                    self.target_y = y_pos
-                elif obj_name in other_site_names:
-                    if obj_name == other_site_names[0]:
-                        x_pos = 0.2 + random.uniform(-0.03, 0.03)
-                        y_pos = 0.35 + random.uniform(-0.02, 0.02)
-                        self.place_object(obj_name, reset_qpos, x_pos, y_pos)
-                    else:
-                        x_pos = -0.2 + random.uniform(-0.03, 0.03)
-                        y_pos = 0.35 + random.uniform(-0.02, 0.02)
-                        self.place_object(obj_name, reset_qpos, x_pos, y_pos)
-                else:
-                    self.place_object(obj_name, reset_qpos, drop=True)
+        items = random.randint(2, 4)
         
-        elif self.env_mode == "eval_ofd" or self.env_mode == "eval" or self.env_mode == "train": 
-            items = random.randint(2, 4)
+        train_items.remove(number)
+        item_indices = random.sample(train_items, items)
             
-            if self.env_mode == "eval_ofd":
-                eval_items = list(set(range(20)))
-                eval_items.remove(number)
-                item_indices = random.sample(eval_items, items)
-            else:
-                train_items.remove(number)
-                item_indices = random.sample(train_items, items)
-                
-            site_names = [self.TS[idx] for idx in item_indices]
-            
-            item_names = [self.TN[idx] for idx in item_indices]
-            print('Other objects: ', item_names)
-            
-            site_names.append(self.target_site_name)
-            random.shuffle(site_names)
+        site_names = [self.TS[idx] for idx in item_indices]
+        item_names = [self.TN[idx] for idx in item_indices]
+        print('Target: ', self.target_name, ', Other objects: ', item_names)
+        site_names.append(self.target_site_name)
+        random.shuffle(site_names)
 
-            for obj_name in self.TS:
-                if obj_name not in site_names:
-                    self.place_object(obj_name, reset_qpos, drop=True)
-            
-            center_obj_x_pos = random.uniform(self.center_obj_range[0][0], 
-                                              self.center_obj_range[0][1])
-            
-            center_obj_y_pos = random.uniform(self.center_obj_range[1][0], 
-                                              self.center_obj_range[1][1])
+        for obj_name in self.TS:
+            if obj_name not in site_names:
+                self.place_object(obj_name, reset_qpos, drop=True)
+        
+        center_obj_x_pos = random.uniform(self.center_obj_range[0][0], 
+                                            self.center_obj_range[0][1])
+        
+        center_obj_y_pos = random.uniform(self.center_obj_range[1][0], 
+                                            self.center_obj_range[1][1])
 
-            for index, obj_name in enumerate(site_names):
-                x_pos = center_obj_x_pos + (((index - 2) * 0.165) +  random.uniform(-0.05, 0.05))
-                y_pos = center_obj_y_pos + random.uniform(-0.075, 0.075)
-                self.place_object(obj_name, reset_qpos, x_pos, y_pos)
+        for index, obj_name in enumerate(site_names):
+            x_pos = center_obj_x_pos + (((index - 2) * 0.165) +  random.uniform(-0.05, 0.05))
+            y_pos = center_obj_y_pos + random.uniform(-0.075, 0.075)
+            self.place_object(obj_name, reset_qpos, x_pos, y_pos)
          
         obs = super().reset(reset_qpos = reset_qpos, reset_qvel = None, **kwargs)
         self.get_observation()
@@ -404,7 +396,6 @@ class EnvV1(env_base_0.MujocoEnv):
         self.final_image = self.current_image
         
         self.TM = time.time()
-        print("target:", self.target_name)
         return {'image': self.final_image, 'vector': obs}
     
 
@@ -516,46 +507,87 @@ class EnvV1(env_base_0.MujocoEnv):
             camera: String specifying the name of the camera to use.
         """ 
         # Initialize the simulator
-        rgb = copy.deepcopy(
+        bgr = copy.deepcopy(
             self.sim.renderer.render_offscreen(width=self.IMAGE_WIDTH, 
                                                height=self.IMAGE_HEIGHT, 
                                                camera_id=camera, depth = False)) 
 
-        rgb = cv.cvtColor(rgb, cv.COLOR_BGR2RGB)
-         
-        mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
-        x, y = int(self.target_x), int(self.target_y)
-        o1, o2 = self.current_mask_offset
-        o1, o2 = int(o1 * self.IMAGE_WIDTH), int(o2 * self.IMAGE_HEIGHT)
-        x, y = x + o1, y + o2
-        
-        half_side = int(max(self.r, 2))
-        if half_side < 1000:
-            hs1 = int(half_side * self.current_mask_scale[0]) 
-            hs2 = int(half_side * self.current_mask_scale[1])
-            cv.rectangle(mask, (x - hs1, y - hs2), (x + hs1, y + hs2), 255, thickness=-1)
+        rgb = cv.cvtColor(bgr, cv.COLOR_BGR2RGB) 
 
-        self.current_mask = mask
-
-        # x1, x2 = int(self.IMAGE_WIDTH * 0.20), int(self.IMAGE_WIDTH * 0.80)
-        # y1, y2 = int(self.IMAGE_HEIGHT * 0.30), int(self.IMAGE_HEIGHT * 0.80)
+        self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8)
         
-        x1, x2 = 0, self.IMAGE_WIDTH
-        y1, y2 = 0, self.IMAGE_HEIGHT
+        if not self.both_touch:
+            if self.classifier == "gdino" and self.inference_type == "sync":
+                xyxy, self.cf_time = g_dino_inference(rgb, self.classifier_model, self.target_name, self.IMAGE_HEIGHT, self.IMAGE_WIDTH)
+                # print(f'inference_time: {inference_time}')
+                self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+                self.cf_center = (-2000, -2000)
+                
+                if xyxy is not None and xyxy.size != 0:
+                    if self.digital_curtain:
+                        if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                            self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                    else:
+                        self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+            
+                gt_center = int(self.target_x), int(self.target_y)
+                        
+                if self.is_classifier_prediction_accurate(gt_center, self.cf_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                    self.cf_num_accurate += 1
+                            
+                self.gs += 1
+                self.cf_accuracy = float(self.cf_num_accurate) / self.gs
+                
+                # print(self.gdino_num_accurate, self.gs, self.gdino_accuracy, self.gdino_time)
+                
+            elif self.classifier == "detic":
+                xyxy, self.cf_time = detic_inference(bgr, self.classifier_model, self.target_name)
+                # print(f'inference_time: {inference_time}')
+                self.current_mask = np.zeros((self.IMAGE_HEIGHT,  self.IMAGE_WIDTH), dtype=np.uint8) 
+                self.cf_center = (-2000, -2000)
+                
+                if xyxy is not None and xyxy.size != 0:
+                    if self.digital_curtain:
+                        if not self.check_in_region(self.compute_camera_matrix(), xyxy):
+                            self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+                    else:
+                        self.current_mask, self.cf_center = create_mask(self.current_mask.copy(), xyxy=xyxy)
+            
+                gt_center = int(self.target_x), int(self.target_y)
+                        
+                if self.is_classifier_prediction_accurate(gt_center, self.cf_center, self.distance, self.IMAGE_WIDTH, self.IMAGE_HEIGHT):
+                    self.cf_num_accurate += 1
+                            
+                self.gs += 1
+                self.cf_accuracy = float(self.cf_num_accurate) / self.gs
+
+        x1, x2 = int(self.IMAGE_WIDTH * 0.25), int(self.IMAGE_WIDTH * 0.75)
+        y1, y2 = int(self.IMAGE_HEIGHT * 0.50), int(self.IMAGE_HEIGHT * 1.0)
         
         roi = self.current_mask[y1:y2, x1:x2]
         white_pixels = float(np.sum(roi == 255))
         total_pixels = float(roi.size)
         self.mask_size = (white_pixels / total_pixels)  
 
-        if self.goal_type == GOALTYPE_MASK:
-            self.current_image = np.dstack((rgb, self.current_mask))
-        elif self.goal_type == GOALTYPE_TARGET_STATE:
-            self.current_image = np.dstack((rgb, self.current_target_state_image))
-        else:
-            self.current_image = rgb
+        self.current_image = np.dstack((rgb, self.current_mask))
         
         return np.array(np.fliplr(np.flipud(rgb)))
+    
+    def is_classifier_prediction_accurate(self, gt_pos, classifier_pos, dist, image_width, image_height):
+        mlt = (-0.5 * dist) + 1.5 
+        acceptable_dist = (image_width / 7.5) * mlt 
+        if isinstance(acceptable_dist, np.ndarray):
+            acceptable_dist = acceptable_dist[0]
+        distance = math.sqrt((gt_pos[0] - classifier_pos[0])**2 + (gt_pos[1] - classifier_pos[1])**2)
+        
+        if classifier_pos[0] < -1900 and classifier_pos[1] < -1900:
+            w_tol = image_width * 0.025
+            h_tol = image_height * 0.025
+            if gt_pos[0] < w_tol or gt_pos[0] > image_width - w_tol or gt_pos[1] < h_tol or gt_pos[1] > image_height - h_tol:
+                return True
+            return False
+
+        return distance < acceptable_dist
 
     def check_target_in_boundary(self):
         w, h = self.IMAGE_WIDTH, self.IMAGE_HEIGHT

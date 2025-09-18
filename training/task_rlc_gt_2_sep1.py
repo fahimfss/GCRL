@@ -31,11 +31,11 @@ config = {
         # in_channel, out_channel, kernel_size, stride
         [-1, 32, 5, 2],
         [32, 32, 5, 2],
-        [32, 64, 3, 1],
-        [64, 64, 3, 1],
+        [32, 64, 3, 2],
+        [64, 64, 3, 2], 
     ],
     
-    'latent_dim': 64,
+    'latent_dim': 128,
 
     'mlp': [1024, 1024],
 }
@@ -44,12 +44,12 @@ GOALTYPE_MASK = "G1_Mask"
 GOALTYPE_ONE_HOT = "G2_OH"
 GOALTYPE_3D = "G3_3d"
 GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS" 
+GOALTYPE_TARGET_STATE = "G5_TS"
 
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=600, type=int)
+    parser.add_argument('--seed', default=6, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
@@ -68,7 +68,7 @@ def parse_args():
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)
-    parser.add_argument('--env_steps', default=1_000_000, type=int)
+    parser.add_argument('--env_steps', default=300_000, type=int)
     parser.add_argument('--batch_size', default=256, type=int)
     parser.add_argument('--sync_mode', default=False, action='store_true')
     parser.add_argument('--global_norm', default=1.0, type=float)
@@ -132,9 +132,9 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}_1M'
+    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
 
-    args.work_dir += f'/results_E4/{args.name}/seed_{args.seed}/'
+    args.work_dir += f'/results_sep1/{args.name}/seed_{args.seed}/'
 
     if os.path.exists(args.work_dir):
         inp = input('The work directory already exists. ' +
@@ -285,70 +285,6 @@ def main(seed=-1, env_name=None):
     return args, actor_params
 
 
-# def eval(args, params):
-#     step_time = None
-#     if args.step_time > 0:
-#         step_time = args.step_time
-    
-#     env = RLC_Env(args.env_name, 
-#                    args.image_history, 
-#                    args.image_width, 
-#                    args.image_height, 
-#                    goal_type=args.goal_type,
-#                    reward_mode=args.reward_mode,
-#                    step_time=step_time,
-#                    ofd_index=args.seed,
-#                    env_mode="eval_ofd")
-    
-#     env = WrappedEnv(env, args.episode_steps)
-
-#     image_shape = env.image_space.shape 
-#     proprioception_shape = env.proprioception_space.shape
-#     action_shape = env.action_space.shape
-#     env_action_space = env.action_space
-
-#     rng = jax.random.PRNGKey(0)
-#     rng, actor = init_inference_actor(rng, 
-#                                       image_shape, 
-#                                       proprioception_shape, 
-#                                       config, 
-#                                       action_shape[-1], 
-#                                       False, 
-#                                       'img_prop', 
-#                                       jnp.float32)
-    
-#     rng, key1, key2 = random.split(rng, 3)
-#     actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
- 
-#     num_episods_per_object = 25
-#     for object_id in range(20): 
-#         stats={'object_id': object_id}
-#         dones=[]
-#         for episode in range(num_episods_per_object):
-#             state = env.reset(object_id=object_id)  
-#             while True: 
-#                 rng, action = sample_actions(rng, 
-#                                             actor.apply, 
-#                                             params, 
-#                                             state, 
-#                                             'img_prop', 
-#                                             True)
-
-#                 action = np.asarray(action).clip(-1, 1)
-#                 state, reward, done, info = env.step(action) 
-#                 if done or 'truncated' in info: 
-#                     if done:
-#                         dones.append(1)
-#                     else:
-#                         dones.append(0)
-#                     break
-                
-#         stats['dones'] = dones
-#         with open(f'{args.work_dir}/eval_ofd_logs.txt', 'a') as f:
-#             f.write(str(stats) + '\n')
-                
-
-
 def eval(args, params):
     step_time = None
     if args.step_time > 0:
@@ -383,18 +319,14 @@ def eval(args, params):
     
     rng, key1, key2 = random.split(rng, 3)
     actor.init(key1, key2, *get_init_data(image_shape, proprioception_shape, 'img_prop'))['params']
-
-    touch = False
-    num_episods_per_object = 50
-
-    for object_id in [0, 1, 2, 4, 5, 16]:
+ 
+    num_episods_per_object = 25
+    for object_id in range(20): 
         stats={'object_id': object_id}
         dones=[]
-        for ep in range(num_episods_per_object):
-            touch = False
-            state = env.reset(create_vid=True, object_id=object_id)
-            ret = 0
-            while True:
+        for episode in range(num_episods_per_object):
+            state = env.reset(object_id=object_id)  
+            while True: 
                 rng, action = sample_actions(rng, 
                                             actor.apply, 
                                             params, 
@@ -403,27 +335,18 @@ def eval(args, params):
                                             True)
 
                 action = np.asarray(action).clip(-1, 1)
-                next_state, reward, done, info = env.step(action) 
-
-                if reward >= 9:
-                    if not touch:
-                        ret += 0.5
-                        touch = True
-                    else:
-                        ret += 0.5
-
-                state = next_state
-
+                state, reward, done, info = env.step(action) 
                 if done or 'truncated' in info: 
-                    dones.append(ret)
+                    if done:
+                        dones.append(1)
+                    else:
+                        dones.append(0)
                     break
-        
+                
         stats['dones'] = dones
         with open(f'{args.work_dir}/eval_ofd_logs.txt', 'a') as f:
             f.write(str(stats) + '\n')
-        
-    env.close() 
-
+                
 
 def run(seed):
     args, params = main(seed=seed)
@@ -433,17 +356,17 @@ def run(seed):
     with open(params_path, 'wb') as f: 
         f.write(flax.serialization.to_bytes(params)) 
 
-    eval(args, params)
+    # eval(args, params)
 
 if __name__ == '__main__':
     mp.set_start_method('spawn')
-    task_id = int(os.environ.get('SLURM_ARRAY_TASK_ID', 660))
+    task_id = int(os.environ.get('SLURM_ARRAY_TASK_ID', 0))
     seeds = [task_id, task_id + 6]
     processes = []
     for s in seeds:
         p = mp.Process(target=run, args=(s,))
         p.start()
         processes.append(p)
-        time.sleep(120)
+        time.sleep(300)
     for p in processes:
         p.join()

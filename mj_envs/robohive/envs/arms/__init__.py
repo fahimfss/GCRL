@@ -39,7 +39,17 @@ register(
     entry_point='robohive.envs.arms.env_v2:EnvV1',
     # max_episode_steps=200, 
     kwargs={
-        'model_path': curr_dir+'/ur10e/scene_pick.xml', 
+        'model_path': curr_dir+'/ur10e/scene_pick2.xml', 
+        'robot_site_name': "pinch"    
+    }
+)
+
+register(
+    id='UR10eEnv-v3',
+    entry_point='robohive.envs.arms.env_v3:EnvV1',
+    # max_episode_steps=200, 
+    kwargs={
+        'model_path': curr_dir+'/ur10e/scene_pick2.xml', 
         'robot_site_name': "pinch"    
     }
 )
