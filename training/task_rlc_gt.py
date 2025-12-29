@@ -49,7 +49,7 @@ GOALTYPE_TARGET_STATE = "G5_TS"
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=6, type=int)
+    parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
@@ -64,7 +64,7 @@ def parse_args():
     parser.add_argument('--episode_steps', default=150, type=int)
 
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=250_000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=300_000, type=int)
     
     # train
     parser.add_argument('--init_steps', default=5_000, type=int)

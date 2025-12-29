@@ -44,12 +44,12 @@ GOALTYPE_MASK = "G1_Mask"
 GOALTYPE_ONE_HOT = "G2_OH"
 GOALTYPE_3D = "G3_3d"
 GOALTYPE_CLIP = "G4_Clip"
-GOALTYPE_TARGET_STATE = "G5_TS" 
+GOALTYPE_TARGET_STATE = "G5_TS"
 
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--seed', default=600, type=int)
+    parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--mode', default='img_prop', type=str, 
                         help="Modes in ['img', 'img_prop', 'prop']")
     
@@ -132,9 +132,9 @@ def main(seed=-1, env_name=None):
         assert args.mode != MODE.PROP, "Async mode is not supported for proprioception only tasks." 
 
     sync_mode = 'sync' if args.sync_mode else 'async'
-    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}_1M'
+    args.name = f'{args.env_name}_{args.task_name}_{args.goal_type}_{args.reward_mode}'
 
-    args.work_dir += f'/results_E4/{args.name}/seed_{args.seed}/'
+    args.work_dir += f'/results/{args.name}/seed_{args.seed}/'
 
     if os.path.exists(args.work_dir):
         inp = input('The work directory already exists. ' +
