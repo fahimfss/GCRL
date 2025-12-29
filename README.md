@@ -7,10 +7,12 @@ Video Demo:
 https://github.com/user-attachments/assets/924baef0-f0bf-4a0d-861d-7d86b07ced9e
 
 ### Experiment Highlight: Pick-up from Scratch
-We trained an end-to-end RL agent capable of picking up objects of interest using images from a wrist-mounted camera and without any 3D positional data, learning from scratch. 
+We trained an end-to-end RL agent capable of picking up objects of interest using images from a wrist-mounted camera and without any 3D positional data, learning from scratch.  
+
 <img width="2452" height="436" alt="image" src="https://github.com/user-attachments/assets/d0807b21-df34-4b13-a103-087772548a23" />
 
-GCRL agents trained using our proposed method (mask-based GCRL and reward system) significantly outperformed other agents, such as 3D position-based GCRL and distance-based reward systems, in post-training trials.
+GCRL agents trained using our proposed method (mask-based GCRL and reward system) significantly outperformed other agents, such as 3D position-based GCRL and distance-based reward systems, in post-training trials.  
+
 <img width="50%" height="50%" alt="image" src="https://github.com/user-attachments/assets/c648d030-9ed2-40d6-ad35-4405bae7043c" />
 
 
