@@ -149,3 +149,4 @@ buffers/
 training/job_* 
 
 *.sh
+.claude/
