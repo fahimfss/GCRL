@@ -4,7 +4,8 @@ This repository contains the associated code for the paper Dynamic Object Masks 
 
 Video Demo: 
 
-https://github.com/user-attachments/assets/924baef0-f0bf-4a0d-861d-7d86b07ced9e
+https://github.com/user-attachments/assets/607328d4-dbba-42fe-8445-2b0573bb013b
+
 
 ### Experiment Highlight: Pick-up from Scratch
 We trained an end-to-end RL agent capable of picking up objects of interest using images from a wrist-mounted camera and without any 3D positional data, learning from scratch.  
