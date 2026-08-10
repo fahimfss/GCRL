@@ -1,5 +1,5 @@
 ## Overview
-This repository contains the associated code for the paper General and Efficient Visual Goal-Conditioned Reinforcement Learning using Object-Agnostic Masks [[ArXiv]](https://arxiv.org/abs/2510.06277). In this paper, we introduce a mask-based goal representation for visual GCRL that enables efficient learning, strong generalization to unseen objects, and effective sim-to-real transfer without requiring 3D positional information.
+This repository contains the associated code for the paper Dynamic Object Masks as Goal Representations for Visual Goal-Conditioned Reinforcement Learning [[ArXiv]](https://arxiv.org/abs/2510.06277). In this paper, we introduce a mask-based goal representation for visual GCRL that enables efficient learning, strong generalization to unseen objects, and effective sim-to-real transfer without requiring 3D positional information.
 
 
 Video Demo: 
